@@ -18,8 +18,15 @@ The extension's files are already written in `ios/ShareExtension/`.
 5. On **both** targets, go to Signing & Capabilities → **+ App Groups** → `group.app.revue.revue`.
    If you use your own ID, change it in both `.entitlements` files and in `AppGroupId` in both `Info.plist` files.
 6. Set the extension's bundle ID to `app.revue.revue.ShareExtension`.
-7. In ShareExtension, go to General → Frameworks and Libraries → **+** → `receive-sharing-intent`.
-   (It shows up after one `flutter build ios`, because Flutter generates the Swift package then.)
+7. Run `flutter build ios` once, which generates `ios/Podfile`. Then edit `ios/Podfile`:
+   set `platform :ios, '16.0'`, change `use_frameworks!` to `use_frameworks! :linkage => :static`,
+   and add a nested target inside `target 'Runner' do … end`:
+   ```ruby
+   target 'ShareExtension' do
+     inherit! :search_paths
+   end
+   ```
+   Then run `cd ios && pod install`.
 8. In Runner → Build Phases, drag **Embed Foundation Extensions** above **Thin Binary**.
 9. `flutter run` on your iPhone. Open YouTube → Share → More → enable **Revue**.
 
