@@ -1,0 +1,29 @@
+name: revue
+description: "A review of everything you experience — save links, videos and screenshots; on-device AI."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gemma: 0.13.6
+  google_mlkit_text_recognition: ^0.16.0
+  http: ^1.6.0
+  image_picker: ^1.2.4
+  path_provider: ^2.1.6
+  receive_sharing_intent: ^1.9.0
+  url_launcher: ^6.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  config:
+    # receive_sharing_intent ships iOS support only as a Swift package (other plugins still use CocoaPods).
+    enable-swift-package-manager: true
