@@ -58,7 +58,19 @@ class LinkFetcher {
     final body = r.bodyBytes.length > 800000 ? r.bodyBytes.sublist(0, 800000) : r.bodyBytes;
     final meta = parseHtml(utf8.decode(body, allowMalformed: true), url);
     if (meta.source.isEmpty) meta.source = url.host.replaceFirst('www.', '');
+    meta.title = stripSiteSuffix(meta.title, url.host);
     return meta;
+  }
+
+  /// "Severance | TVmaze" → "Severance", "Black hole - Wikipedia" → "Black hole".
+  /// Only strips when the suffix is the site's own name, so real titles with dashes survive.
+  static String stripSiteSuffix(String title, String host) {
+    final parts = host.toLowerCase().split('.');
+    final brand = parts.length >= 2 ? parts[parts.length - 2] : parts.first;
+    final m = RegExp(r'^(.+?)\s+[|\-–—:]\s+([^|\-–—:]+)$').firstMatch(title.trim());
+    if (m == null) return title;
+    final suffix = m.group(2)!.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return suffix.isNotEmpty && (suffix.contains(brand) || brand.contains(suffix)) ? m.group(1)!.trim() : title;
   }
 
   /// Reads og:/twitter: meta tags and <title> out of raw HTML.

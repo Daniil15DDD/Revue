@@ -46,3 +46,6 @@ app.*.map.json
 
 # Claude Code local state
 .claude/
+
+# Demo recordings (large binaries)
+docs/demo/

@@ -35,6 +35,14 @@ void main() {
       expect(m.imageUrl, isNull);
     });
 
+    test("stripSiteSuffix removes only the site's own name", () {
+      expect(LinkFetcher.stripSiteSuffix('Severance | TVmaze', 'www.tvmaze.com'), 'Severance');
+      expect(LinkFetcher.stripSiteSuffix('Black hole - Wikipedia', 'en.wikipedia.org'), 'Black hole');
+      expect(LinkFetcher.stripSiteSuffix('Spider-Man - Into the Spider-Verse', 'www.imdb.com'),
+          'Spider-Man - Into the Spider-Verse');
+      expect(LinkFetcher.stripSiteSuffix('Plain title', 'example.com'), 'Plain title');
+    });
+
     test('decodeEntities does not double-decode', () {
       expect(LinkFetcher.decodeEntities('&amp;lt;'), '&lt;');
     });

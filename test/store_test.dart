@@ -27,6 +27,9 @@ http.Client _fakeWeb() => MockClient((req) async {
           for (var e = 1; e <= 13; e++) {'season': 2, 'number': e},
         ]}}), 200);
       }
+      if (u.host == 'www.tvmaze.com') {
+        return http.Response('<meta property="og:title" content="Breaking Bad">', 200);
+      }
       if (u.host == 'blog.example') {
         return http.Response('<meta property="og:title" content="Why sleep matters">'
             '<meta property="og:image" content="/cover.jpg">', 200);
@@ -143,6 +146,22 @@ void main() {
     expect(show.seasons, [7, 13]);
     expect(show.total, 20);
     expect(await s.findProgress(Item(title: 'x', kind: Kind.video)), isFalse);
+  });
+
+  test('a shared series link gets its seasons looked up even without an AI model', () async {
+    final s = make();
+    await s.load();
+    final item = await s.addText('https://www.tvmaze.com/shows/169/breaking-bad');
+    expect(item.kind, Kind.show);
+    expect(item.seasons, [7, 13]);
+    expect(item.total, 20);
+  });
+
+  test('screenshot titles skip status bars and back buttons', () {
+    expect(screenshotTitle('9:41\n< Notes\nBooks to read this winter\n1. Dune'), 'Books to read this winter');
+    expect(screenshotTitle('9:41\n< Messages\nRamen spots to try in Tokyo'), 'Ramen spots to try in Tokyo');
+    expect(screenshotTitle('CAFE LUNA\nFlat white 4.50'), 'CAFE LUNA'); // falls back to the first line
+    expect(screenshotTitle(''), '');
   });
 
   test('lists can be renamed, recoloured, and counted per period', () async {

@@ -147,7 +147,7 @@ class Store extends ChangeNotifier {
     await _commit();
     try {
       item.text = (await ocr(thumbFile(item)!.path)).trim();
-      final firstLine = item.text.split('\n').map((l) => l.trim()).firstWhere((l) => l.length > 3, orElse: () => '');
+      final firstLine = screenshotTitle(item.text);
       if (firstLine.isNotEmpty) item.title = firstLine.length > 60 ? '${firstLine.substring(0, 60)}…' : firstLine;
       item.url = LinkFetcher.firstUrl(item.text)?.toString();
       await _commit();
@@ -161,13 +161,15 @@ class Store extends ChangeNotifier {
 
   Future<void> _enrich(Item item, String content, {bool keepTitle = false}) async {
     final a = await Brain.analyze(llm?.call(), content);
-    if (a == null) return;
-    if (!keepTitle && a.title.isNotEmpty) item.title = a.title;
-    if (item.summary.isEmpty) item.summary = a.summary;
-    if (a.tags.isNotEmpty) item.tags = a.tags;
-    // Only refine generic kinds; a YouTube URL stays a video whatever the model says.
-    if (a.kind != null && (item.kind == Kind.link || item.kind == Kind.note)) item.kind = a.kind!;
-    await _commit();
+    if (a != null) {
+      if (!keepTitle && a.title.isNotEmpty) item.title = a.title;
+      if (item.summary.isEmpty) item.summary = a.summary;
+      if (a.tags.isNotEmpty) item.tags = a.tags;
+      // Only refine generic kinds; a YouTube URL stays a video whatever the model says.
+      if (a.kind != null && (item.kind == Kind.link || item.kind == Kind.note)) item.kind = a.kind!;
+      await _commit();
+    }
+    // Runs with or without the model: the lookup itself is Open Library / TVmaze.
     if (item.kind.progressUnit != null && item.total == null) await findProgress(item);
   }
 
@@ -251,6 +253,17 @@ class Store extends ChangeNotifier {
     }
     await _commit();
   }
+}
+
+/// Title for a screenshot from its OCR text: the first line that reads like a heading,
+/// skipping status-bar clocks ("9:41"), back buttons ("< Notes") and other short chrome.
+String screenshotTitle(String text) {
+  final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+  final letter = RegExp(r'[A-Za-z\u00C0-\uFFFF]');
+  bool heading(String l) =>
+      letter.allMatches(l).length >= 8 &&
+      l.split(RegExp(r'\s+')).where((w) => letter.allMatches(w).length >= 2).length >= 2; // "< Messages" is one word
+  return lines.firstWhere(heading, orElse: () => lines.firstOrNull ?? '');
 }
 
 enum Period {

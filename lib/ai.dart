@@ -83,7 +83,12 @@ class GemmaLlm extends ChangeNotifier implements Llm {
     // MediaPipe runs one session at a time, so calls are queued.
     final result = _queue.then((_) async {
       // These .task builds have a 1280-token KV cache shared by prompt and reply, so prompts stay short.
-      _model ??= await FlutterGemma.getActiveModel(maxTokens: 1280, preferredBackend: PreferredBackend.gpu);
+      // GPU on Android needs OpenCL, which many phones (and emulators) lack, and MediaPipe
+      // segfaults instead of falling back, so Android runs on CPU. iOS GPU uses Metal (always there).
+      // shortcut: CPU for every Android phone; probe for libOpenCL.so to use the GPU where it exists.
+      _model ??= await FlutterGemma.getActiveModel(
+          maxTokens: 1280,
+          preferredBackend: defaultTargetPlatform == TargetPlatform.iOS ? PreferredBackend.gpu : PreferredBackend.cpu);
       final chat = await _model!.createChat(temperature: 0.3, topK: 40, systemInstruction: system);
       try {
         await chat.addQueryChunk(Message.text(text: prompt, isUser: true));
