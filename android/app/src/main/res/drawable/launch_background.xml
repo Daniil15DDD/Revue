@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Splash before Flutter's first frame: the logo on black, same size as the launch animation's first frame. -->
+<!-- Plain black until Flutter's first frame: the launch animation draws the logo itself. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/black" />
-    <item>
-        <bitmap android:gravity="center" android:src="@mipmap/launch_logo" />
-    </item>
 </layer-list>

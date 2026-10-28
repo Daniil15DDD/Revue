@@ -13,11 +13,11 @@ Widget app({bool calm = false}) => MaterialApp(
 void main() {
   testWidgets('plays, then leaves only the app', (t) async {
     await t.pumpWidget(app());
-    expect(find.byType(Image), findsNWidgets(2)); // letter + ribbon on screen
+    expect(find.byKey(const ValueKey('launch-splash')), findsOneWidget); // splash on screen
     await t.pump(const Duration(milliseconds: 600));
-    expect(find.byType(Image), findsNWidgets(2)); // still animating
+    expect(find.byKey(const ValueKey('launch-splash')), findsOneWidget); // still animating
     await t.pumpAndSettle();
-    expect(find.byType(Image), findsNothing);
+    expect(find.byKey(const ValueKey('launch-splash')), findsNothing);
     expect(find.text('home'), findsOneWidget);
   });
 
@@ -29,13 +29,14 @@ void main() {
     await t.pump(); // the restarted animation starts its clock on this frame
     await t.pump(const Duration(milliseconds: 700)); // vs ~1250 ms without the tap
     await t.pump();
-    expect(find.byType(Image), findsNothing);
+    expect(find.byKey(const ValueKey('launch-splash')), findsNothing);
   });
 
   testWidgets('reduce motion is a short cross-fade', (t) async {
     await t.pumpWidget(app(calm: true));
+    await t.pump(); // the clock starts after the first frame
     await t.pump(const Duration(milliseconds: 300));
     await t.pump();
-    expect(find.byType(Image), findsNothing);
+    expect(find.byKey(const ValueKey('launch-splash')), findsNothing);
   });
 }
