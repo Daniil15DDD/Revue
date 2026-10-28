@@ -118,18 +118,25 @@ Future<T?> pickOption<T>(BuildContext context, List<SheetOption<T>> options, {St
   return showModalBottomSheet<T>(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true, // long lists (12 types) scroll instead of overflowing
     builder: (ctx) => SafeArea(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        if (title != null)
-          Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(title, style: Theme.of(ctx).textTheme.titleMedium)),
-        for (final o in options)
-          ListTile(
-            leading: o.icon == null ? null : Icon(o.icon),
-            title: Text(o.label),
-            subtitle: o.subtitle == null ? null : Text(o.subtitle!),
-            onTap: () => Navigator.pop(ctx, o.value),
-          ),
-      ]),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.75),
+        child: ListView(shrinkWrap: true, children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(title, textAlign: TextAlign.center, style: Theme.of(ctx).textTheme.titleMedium),
+            ),
+          for (final o in options)
+            ListTile(
+              leading: o.icon == null ? null : Icon(o.icon),
+              title: Text(o.label),
+              subtitle: o.subtitle == null ? null : Text(o.subtitle!),
+              onTap: () => Navigator.pop(ctx, o.value),
+            ),
+        ]),
+      ),
     ),
   );
 }

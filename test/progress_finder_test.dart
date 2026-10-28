@@ -114,4 +114,45 @@ void main() {
       });
     }
   });
+
+  group('anime', () {
+    test('slugQuery takes the title-like part of a link', () {
+      expect(ProgressFinder.slugQuery(Uri.parse('https://aniliberty.top/anime/releases/release/86-eighty-six/episodes')),
+          '86 eighty six');
+      expect(ProgressFinder.slugQuery(Uri.parse('https://www.tvmaze.com/shows/44933/severance')), 'severance');
+      expect(ProgressFinder.slugQuery(Uri.parse('https://example.com/')), '');
+    });
+
+    test('AniList: follows TV sequels as seasons; foreign title falls back to the link slug', () async {
+      final queries = <String>[];
+      final client = MockClient((req) async {
+        if (req.url.host == 'api.tvmaze.com') return http.Response('null', 404);
+        final body = jsonDecode(req.body) as Map<String, dynamic>;
+        final vars = body['variables'] as Map<String, dynamic>;
+        if (vars['s'] != null) queries.add(vars['s'] as String);
+        Map<String, dynamic> media(int id, int eps, int? sequel) => {
+              'data': {
+                'Media': {
+                  'id': id, 'episodes': eps, 'format': 'TV',
+                  'title': {'romaji': '86', 'english': '86 EIGHTY-SIX'},
+                  'relations': {'edges': [
+                    {'relationType': 'PREQUEL', 'node': {'id': 1, 'type': 'ANIME', 'format': 'TV'}},
+                    if (sequel != null) {'relationType': 'SEQUEL', 'node': {'id': sequel, 'type': 'ANIME', 'format': 'TV'}},
+                    {'relationType': 'ADAPTATION', 'node': {'id': 99, 'type': 'MANGA', 'format': 'MANGA'}},
+                  ]},
+                }
+              }
+            };
+        if (vars['s'] == '86 eighty six') return http.Response(jsonEncode(media(1, 11, 2)), 200);
+        if (vars['id'] == 2) return http.Response(jsonEncode(media(2, 12, null)), 200);
+        return http.Response(jsonEncode({'data': {'Media': null}}), 200);
+      });
+      final info = await ProgressFinder(client).find('86 Восемьдесят-шесть',
+          series: true, anime: true, url: Uri.parse('https://aniliberty.top/anime/releases/release/86-eighty-six/episodes'));
+      expect(info?.seasons, [11, 12]);
+      expect(info?.title, '86 EIGHTY-SIX');
+      expect(info?.source, 'AniList');
+      expect(queries, ['86 Восемьдесят-шесть', '86 eighty six']); // page title first, then the slug
+    });
+  });
 }

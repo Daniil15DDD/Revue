@@ -181,8 +181,11 @@ class Store extends ChangeNotifier {
     processing.add(item.id);
     notifyListeners();
     try {
+      final url = item.url == null ? null : Uri.tryParse(item.url!);
       final info = await finder.find(item.title,
           series: item.kind == Kind.show,
+          url: url,
+          anime: url != null && Kind.isAnimeSite(url),
           ask: model == null ? null : (prompt) => model.generate('You extract names. Reply with the name only.', prompt));
       if (info == null) return false;
       item.seasons = info.seasons;

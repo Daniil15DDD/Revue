@@ -17,7 +17,7 @@ class LibraryPage extends StatefulWidget {
   State<LibraryPage> createState() => _LibraryPageState();
 }
 
-enum _Add { paste, screenshots, note }
+enum _Add { paste, screenshots, note, list }
 
 enum _ListAction { rename, color, delete }
 
@@ -231,6 +231,8 @@ class _LibraryPageState extends State<LibraryPage> {
       SheetOption(_Add.screenshots, 'Choose Screenshots', icon: ios ? CupertinoIcons.photo_on_rectangle : Icons.photo_library_outlined,
           subtitle: 'Text is read on-device and auto-tagged'),
       SheetOption(_Add.note, 'New Note', icon: ios ? CupertinoIcons.square_pencil : Icons.edit_note),
+      SheetOption(_Add.list, 'New List', icon: ios ? CupertinoIcons.folder_badge_plus : Icons.create_new_folder_outlined,
+          subtitle: 'A folder for anything — Anime, Recipes, 2026 reads'),
     ]);
     if (!mounted || choice == null) return;
     switch (choice) {
@@ -246,6 +248,8 @@ class _LibraryPageState extends State<LibraryPage> {
       case _Add.note:
         final text = await promptText(context, 'New Note', hint: 'Write anything…', multiline: true);
         if (text != null && text.trim().isNotEmpty) store.addNote(text, listId: _listId);
+      case _Add.list:
+        await _newList();
     }
   }
 

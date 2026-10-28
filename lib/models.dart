@@ -33,12 +33,18 @@ enum Kind {
         _ => null,
       };
 
+  /// Anime sites: saved links become series, and episode lookups go to AniList first.
+  static bool isAnimeSite(Uri url) => const [
+        'aniliberty.', 'anilibria.', 'crunchyroll.', 'myanimelist.', 'anilist.', 'shikimori.', 'animego.',
+        'animevost.', 'jut.su', 'kitsu.', 'hianime.', 'aniwave.', '9anime.', 'animelib.',
+      ].any(url.host.toLowerCase().contains);
+
   /// Guess what a URL points to from its host.
   static Kind guess(Uri url) {
     final host = url.host.toLowerCase();
     bool has(List<String> parts) => parts.any(host.contains);
     if (has(['youtube.', 'youtu.be', 'vimeo.', 'twitch.', 'tiktok.'])) return video;
-    if (has(['tvmaze.', 'myanimelist.', 'tvtime.'])) return show;
+    if (isAnimeSite(url) || has(['tvmaze.', 'tvtime.'])) return show;
     if (has(['spotify.', 'music.apple.', 'soundcloud.', 'bandcamp.'])) return music;
     if (has(['imdb.', 'letterboxd.', 'themoviedb.', 'netflix.'])) return movie;
     if (has(['goodreads.', 'books.google.', 'openlibrary.'])) return book;

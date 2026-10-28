@@ -7,12 +7,12 @@ class ProgressInfo {
   final String title; // matched title from the database
   final int? pages; // books
   final List<int> seasons; // series: episodes per season, index 0 = season 1
-  final String source; // 'Open Library' or 'TVmaze'
+  final String source; // 'Open Library', 'TVmaze' or 'AniList'
   int? get episodes => seasons.isEmpty ? null : seasons.reduce((a, b) => a + b);
 }
 
 /// Looks up the real size of a saved item: page count for books (Open Library),
-/// episodes per season for series (TVmaze). Never throws; null when nothing matches.
+/// episodes per season for series (TVmaze, or AniList for anime). Never throws; null when nothing matches.
 class ProgressFinder {
   ProgressFinder([http.Client? client]) : client = client ?? http.Client();
   final http.Client client;
@@ -20,15 +20,39 @@ class ProgressFinder {
   static const _headers = {'User-Agent': 'Revue/0.1 (personal library app)'};
 
   /// [ask] is an optional on-device LLM used only to extract the clean title; null = heuristics only.
+  /// [url] adds a second search term from the link itself ("…/86-eighty-six/…" → "86 eighty six"),
+  /// which rescues titles in other languages. [anime] tries AniList before TVmaze.
   Future<ProgressInfo?> find(String rawTitle,
-      {required bool series, Future<String> Function(String prompt)? ask}) async {
-    final query = await _title(rawTitle, series, ask);
-    if (query.isEmpty) return null;
-    try {
-      return series ? await _series(query) : await _book(query);
-    } catch (_) {
-      return null;
+      {required bool series, Future<String> Function(String prompt)? ask, Uri? url, bool anime = false}) async {
+    final queries = {await _title(rawTitle, series, ask), if (url != null) slugQuery(url)}..remove('');
+    final lookups = !series
+        ? [_book]
+        : anime
+            ? [_anime, _series]
+            : [_series, _anime];
+    for (final query in queries) {
+      for (final lookup in lookups) {
+        try {
+          final info = await lookup(query);
+          if (info != null) return info;
+        } catch (_) {/* try the next source */}
+      }
     }
+    return null;
+  }
+
+  static const _slugNoise = {'anime', 'release', 'releases', 'episodes', 'episode', 'watch', 'title', 'titles',
+    'series', 'show', 'shows', 'tv', 'season', 'online', 'video', 'book', 'books', 'en', 'ru'};
+
+  /// The most title-like path segment of a link: "/anime/releases/release/86-eighty-six/episodes" → "86 eighty six".
+  static String slugQuery(Uri url) {
+    String words(String seg) => seg.replaceAll(RegExp(r'\.(html?|php)$'), '').replaceAll(RegExp(r'[-_+]+'), ' ').trim();
+    final candidates = url.pathSegments
+        .map(words)
+        .where((w) => RegExp(r'[a-zA-Z]{3,}').hasMatch(w) && !_slugNoise.contains(w.toLowerCase()))
+        .toList();
+    if (candidates.isEmpty) return '';
+    return candidates.reduce((a, b) => b.split(' ').length > a.split(' ').length ? b : a);
   }
 
   Future<String> _title(String raw, bool series, Future<String> Function(String prompt)? ask) async {
@@ -81,6 +105,47 @@ class ProgressFinder {
     if (perSeason.isEmpty) return null;
     final seasons = (perSeason.keys.toList()..sort()).map((s) => perSeason[s]!).toList();
     return ProgressInfo(title: show['name'] as String? ?? query, seasons: seasons, source: 'TVmaze');
+  }
+
+  static const _media = 'id episodes format title { romaji english } '
+      'relations { edges { relationType node { id type format } } }';
+
+  // shortcut: follows up to 6 TV sequels as "seasons"; spin-offs and movies are ignored.
+  Future<ProgressInfo?> _anime(String query) async {
+    Future<Map<String, dynamic>?> media(String args, Map<String, dynamic> vars) async {
+      final r = await client
+          .post(Uri.https('graphql.anilist.co', '/'),
+              headers: {..._headers, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+              // Declare only the variable used: GraphQL rejects unused ones.
+              body: jsonEncode({
+                'query': 'query(${vars.containsKey('s') ? '\$s: String' : '\$id: Int'}) { Media($args) { $_media } }',
+                'variables': vars,
+              }))
+          .timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return null;
+      return ((jsonDecode(r.body) as Map<String, dynamic>)['data'] as Map<String, dynamic>?)?['Media']
+          as Map<String, dynamic>?;
+    }
+
+    var m = await media('search: \$s, type: ANIME', {'s': query});
+    if (m == null) return null;
+    final title = (m['title'] as Map?)?['english'] ?? (m['title'] as Map?)?['romaji'] ?? query;
+    final seasons = <int>[];
+    final seen = <int>{};
+    for (var hop = 0; m != null && hop < 7 && seen.add(m['id'] as int); hop++) {
+      final eps = m['episodes'];
+      if (eps is! int || eps <= 0) break; // still airing or unknown: stop here
+      seasons.add(eps);
+      final edges = ((m['relations'] as Map?)?['edges'] as List? ?? const []).cast<Map<String, dynamic>>();
+      final sequel = edges
+          .where((e) => e['relationType'] == 'SEQUEL')
+          .map((e) => e['node'] as Map<String, dynamic>)
+          .where((n) => n['type'] == 'ANIME' && const ['TV', 'TV_SHORT', 'ONA'].contains(n['format']))
+          .firstOrNull;
+      m = sequel == null ? null : await media('id: \$id', {'id': sequel['id']});
+    }
+    if (seasons.isEmpty) return null;
+    return ProgressInfo(title: title as String, seasons: seasons, source: 'AniList');
   }
 
   /// Strips site names and decorations from a page title, e.g.
