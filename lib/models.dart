@@ -132,6 +132,7 @@ class Item {
     this.status = Status.planned,
     this.progress = 0,
     this.total,
+    this.ongoing = false,
     List<int>? seasons,
     this.thumbnail,
     DateTime? created,
@@ -156,6 +157,7 @@ class Item {
   int progress; // pages read / episodes watched
   int? total; // total pages / episodes, null = unknown
   List<int> seasons; // series: episodes per season (index 0 = season 1)
+  bool ongoing; // still airing: total = episodes out so far, never auto-finishes
   String? thumbnail; // file name inside Store.thumbsDir
   final DateTime created;
   DateTime? finishedAt;
@@ -165,7 +167,7 @@ class Item {
   /// Sets progress and moves the status along: started → active, reached the end → finished.
   void setProgress(int value) {
     progress = value.clamp(0, total ?? 1 << 30);
-    if (total != null && progress >= total!) {
+    if (total != null && progress >= total! && !ongoing) {
       setStatus(Status.finished);
     } else if (progress > 0 && (status == Status.planned || status == Status.finished)) {
       setStatus(Status.active);
@@ -196,7 +198,11 @@ class Item {
     if (unit == null || (progress == 0 && total == null)) return null;
     if (kind == Kind.book) return total == null ? 'Page $progress' : 'Page $progress of $total';
     final se = seasonEpisode;
-    final count = total == null ? '$progress episodes' : '$progress of $total episodes';
+    final count = total == null
+        ? '$progress episodes'
+        : ongoing
+            ? '$progress of $total out · airing'
+            : '$progress of $total episodes';
     return se == null ? count : 'S${se.$1} · E${se.$2} · $count';
   }
 
@@ -221,6 +227,7 @@ class Item {
         'progress': progress,
         'total': total,
         'seasons': seasons,
+        'ongoing': ongoing,
         'thumbnail': thumbnail,
         'created': created.toIso8601String(),
         'finishedAt': finishedAt?.toIso8601String(),
@@ -243,6 +250,7 @@ class Item {
         progress: j['progress'] ?? 0,
         total: j['total'],
         seasons: List<int>.from(j['seasons'] ?? const []),
+        ongoing: j['ongoing'] ?? false,
         thumbnail: j['thumbnail'],
         created: DateTime.tryParse(j['created'] ?? ''),
         finishedAt: DateTime.tryParse(j['finishedAt'] ?? ''),

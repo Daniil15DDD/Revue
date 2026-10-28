@@ -24,6 +24,13 @@ class _ItemPageState extends State<ItemPage> {
   Store get store => widget.store;
 
   @override
+  void initState() {
+    super.initState();
+    // Airing shows gain episodes: refresh the count quietly whenever the page opens.
+    if (item.ongoing) store.findProgress(item);
+  }
+
+  @override
   void dispose() {
     _title.dispose();
     _note.dispose();
@@ -168,7 +175,7 @@ class _ItemPageState extends State<ItemPage> {
     }
     final se = item.seasonEpisode;
     final (big, small) = item.kind == Kind.show
-        ? (se == null ? 'Not started' : 'Season ${se.$1} · Episode ${se.$2}', '${item.progress} of ${item.total} episodes')
+        ? (se == null ? 'Not started' : 'Season ${se.$1} · Episode ${se.$2}', item.ongoing ? '${item.progress} of ${item.total} out so far · still airing' : '${item.progress} of ${item.total} episodes')
         : ('Page ${item.progress}', 'of ${item.total} pages · ${(item.progress * 100 / item.total!).round()}%');
     final step = item.kind == Kind.book ? 10 : 1;
     return Padding(

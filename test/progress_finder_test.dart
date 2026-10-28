@@ -155,4 +155,32 @@ void main() {
       expect(queries, ['86 Восемьдесят-шесть', '86 eighty six']); // page title first, then the slug
     });
   });
+
+  group('aniliberty', () {
+    http.Response release(Map<String, dynamic> d) => http.Response(jsonEncode(d), 200);
+    List<Map<String, int>> eps(int n) => [for (var i = 1; i <= n; i++) {'ordinal': i}];
+
+    test('uses the site\'s own episode list before any database', () async {
+      final seen = <Uri>[];
+      final client = MockClient((req) async {
+        seen.add(req.url);
+        return release({'name': {'english': '86 EIGHTY-SIX'}, 'episodes': eps(12), 'episodes_total': 11, 'is_ongoing': false});
+      });
+      final info = await ProgressFinder(client).find('86 Восемьдесят-шесть',
+          series: true, anime: true, url: Uri.parse('https://aniliberty.top/anime/releases/release/86-eighty-six/episodes'));
+      expect(info?.episodes, 12);
+      expect(info?.ongoing, isFalse);
+      expect(info?.source, 'AniLiberty');
+      expect(seen.single.path, '/api/v1/anime/releases/86-eighty-six');
+    });
+
+    test('airing shows report what is out now and are marked ongoing', () async {
+      final client = MockClient((_) async =>
+          release({'name': {'english': 'Steel Ball Run'}, 'episodes': eps(6), 'episodes_total': null, 'is_ongoing': true}));
+      final info = await ProgressFinder(client).find('JoJo', series: true, anime: true,
+          url: Uri.parse('https://aniliberty.top/anime/releases/release/steel-ball-run-jojo-no-kimyou-na-bouken/episodes'));
+      expect(info?.episodes, 6);
+      expect(info?.ongoing, isTrue);
+    });
+  });
 }

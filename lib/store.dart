@@ -190,6 +190,7 @@ class Store extends ChangeNotifier {
       if (info == null) return false;
       item.seasons = info.seasons;
       item.total = info.pages ?? info.episodes;
+      item.ongoing = info.ongoing;
       if (item.total != null && item.progress > item.total!) item.progress = item.total!;
       return item.total != null;
     } finally {

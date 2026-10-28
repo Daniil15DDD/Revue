@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ProgressInfo {
-  ProgressInfo({required this.title, this.pages, this.seasons = const [], this.source = ''});
+  ProgressInfo({required this.title, this.pages, this.seasons = const [], this.source = '', this.ongoing = false});
   final String title; // matched title from the database
   final int? pages; // books
   final List<int> seasons; // series: episodes per season, index 0 = season 1
-  final String source; // 'Open Library', 'TVmaze' or 'AniList'
+  final String source; // 'Open Library', 'TVmaze', 'AniList' or 'AniLiberty'
+  final bool ongoing; // still airing: the episode count will grow
   int? get episodes => seasons.isEmpty ? null : seasons.reduce((a, b) => a + b);
 }
 
@@ -24,6 +25,13 @@ class ProgressFinder {
   /// which rescues titles in other languages. [anime] tries AniList before TVmaze.
   Future<ProgressInfo?> find(String rawTitle,
       {required bool series, Future<String> Function(String prompt)? ask, Uri? url, bool anime = false}) async {
+    // The site you watch on knows best: its own episode list beats any database.
+    if (series && url != null) {
+      try {
+        final own = await _aniliberty(url);
+        if (own != null) return own;
+      } catch (_) {/* fall back to the databases */}
+    }
     final queries = {await _title(rawTitle, series, ask), if (url != null) slugQuery(url)}..remove('');
     final lookups = !series
         ? [_book]
@@ -105,6 +113,32 @@ class ProgressFinder {
     if (perSeason.isEmpty) return null;
     final seasons = (perSeason.keys.toList()..sort()).map((s) => perSeason[s]!).toList();
     return ProgressInfo(title: show['name'] as String? ?? query, seasons: seasons, source: 'TVmaze');
+  }
+
+  /// AniLiberty (ex-AniLibria) release pages: count the episodes actually published on the site.
+  Future<ProgressInfo?> _aniliberty(Uri url) async {
+    final host = url.host.toLowerCase();
+    if (!host.contains('aniliberty.') && !host.contains('anilibria.')) return null;
+    final parts = url.pathSegments;
+    final i = parts.indexOf('release');
+    if (i < 0 || i + 1 >= parts.length) return null;
+    final r = await client
+        .get(Uri.https(url.host, '/api/v1/anime/releases/${parts[i + 1]}'), headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (r.statusCode != 200) return null;
+    final d = jsonDecode(r.body) as Map<String, dynamic>;
+    final published = (d['episodes'] as List? ?? const []).length;
+    final ongoing = d['is_ongoing'] == true;
+    final announced = d['episodes_total'];
+    // Finished shows: everything on the site. Airing ones: what's out now (the count grows on refresh).
+    final total = published > 0 ? published : (announced is int && announced > 0 ? announced : 0);
+    if (total == 0) return null;
+    final name = d['name'] as Map<String, dynamic>?;
+    return ProgressInfo(
+        title: (name?['english'] ?? name?['main'] ?? parts[i + 1]) as String,
+        seasons: [total],
+        source: 'AniLiberty',
+        ongoing: ongoing);
   }
 
   static const _media = 'id episodes format title { romaji english } '

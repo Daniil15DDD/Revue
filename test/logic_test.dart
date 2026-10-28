@@ -96,6 +96,13 @@ void main() {
     expect(b.progress, 0);
   });
 
+  test('airing series never auto-finish when caught up', () {
+    final s = Item(title: 'SBR', kind: Kind.show, total: 6, seasons: [6], ongoing: true);
+    s.setProgress(6);
+    expect(s.status, Status.active);
+    expect(s.progressLabel, contains('6 of 6 out · airing'));
+  });
+
   test('series progress maps to season and episode', () {
     final s = Item(title: 'Breaking Bad', kind: Kind.show, total: 62, seasons: [7, 13, 13, 13, 16]);
     expect(s.seasonEpisode, isNull);
