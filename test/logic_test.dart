@@ -56,9 +56,48 @@ void main() {
   });
 
   test('Item JSON round-trips', () {
-    final i = Item(title: 'T', url: 'https://x.y', kind: Kind.book, tags: ['a'], rating: 4, done: true, listId: 'L');
+    final i = Item(title: 'T', url: 'https://x.y', kind: Kind.show, tags: ['a'], rating: 4,
+        status: Status.active, progress: 9, total: 20, seasons: [7, 13], listId: 'L');
     final back = Item.fromJson(i.toJson());
     expect(back.toJson(), i.toJson());
+  });
+
+  test('old libraries with a done flag migrate to a status', () {
+    expect(Item.fromJson({'title': 'a', 'kind': 'book', 'done': true}).status, Status.finished);
+    expect(Item.fromJson({'title': 'a', 'kind': 'book'}).status, Status.planned);
+    expect(RevueList.fromJson({'id': 'x', 'name': 'Old', 'emoji': '🎬'}).display, '🎬 Old');
+  });
+
+  test('status wording fits the kind', () {
+    expect(Status.planned.label(Kind.book), 'Plan to read');
+    expect(Status.active.label(Kind.show), 'Watching');
+    expect(Status.finished.label(Kind.place), 'Visited');
+    expect(Status.paused.label(Kind.game), 'On hold');
+  });
+
+  test('progress moves the status along and clamps', () {
+    final b = Item(title: 'Dune', kind: Kind.book, total: 500);
+    b.setProgress(120);
+    expect(b.status, Status.active);
+    expect(b.progressLabel, 'Page 120 of 500');
+    b.setProgress(900);
+    expect(b.progress, 500);
+    expect(b.status, Status.finished);
+    expect(b.finishedAt, isNotNull);
+    b.setProgress(-5);
+    expect(b.progress, 0);
+  });
+
+  test('series progress maps to season and episode', () {
+    final s = Item(title: 'Breaking Bad', kind: Kind.show, total: 62, seasons: [7, 13, 13, 13, 16]);
+    expect(s.seasonEpisode, isNull);
+    s.setProgress(7);
+    expect(s.seasonEpisode, (1, 7));
+    s.setProgress(8);
+    expect(s.seasonEpisode, (2, 1));
+    expect(s.progressLabel, 'S2 · E1 · 8 of 62 episodes');
+    s.setStatus(Status.finished);
+    expect(s.progress, 62);
   });
 
   group('Brain', () {

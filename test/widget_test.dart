@@ -20,6 +20,10 @@ void main() {
   tearDown(() => dir.delete(recursive: true));
 
   Future<void> pumpApp(WidgetTester tester) async {
+    // Tall phone so the cards below the Stats card are laid out.
+    tester.view.physicalSize = const Size(1170, 4200);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(RevueApp(store: store, llm: GemmaLlm(), listenForShares: false));
     await tester.pumpAndSettle();
   }
@@ -46,7 +50,7 @@ void main() {
     expect(find.text('Cosmos documentary'), findsOneWidget);
     expect(find.text('Best tacos in town'), findsOneWidget);
 
-    await tester.tap(find.text('${watch.emoji} ${watch.name}'));
+    await tester.tap(find.text(watch.display));
     await tester.pumpAndSettle();
     expect(find.text('Best tacos in town'), findsNothing);
 
@@ -54,6 +58,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Watch'), findsOneWidget);
     expect(find.text('YOUR REVIEW'), findsOneWidget);
+    expect(find.text('Plan to watch'), findsOneWidget); // status chip
   });
 
   testWidgets('assistant answers from the library without a model', (tester) async {
@@ -80,8 +85,8 @@ void main() {
     await tester.tap(find.text('Cosmos documentary'));
     await tester.pumpAndSettle();
     expect(find.byType(CupertinoListSection), findsWidgets);
-    expect(find.byType(CupertinoSwitch), findsOneWidget);
-    expect(find.text('Watched'), findsOneWidget);
+    expect(find.text('Status'), findsOneWidget);
+    expect(find.text('Plan to watch'), findsOneWidget);
   });
 
   testWidgets('appearance setting switches the app to dark', (tester) async {

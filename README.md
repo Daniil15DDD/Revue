@@ -12,8 +12,12 @@ into lists, rate them, and ask an on-device AI about them. Runs on **iPhone and 
 - **Screenshots.** Share one to Revue, or use Add → Screenshots. Google ML Kit reads the text
   **on the device**. The local LLM then gives it a title, a one-line summary and tags. Any link
   in the screenshot is detected.
-- **Lists** (Watch later, To read, Places, plus your own), kind filters, and search across
-  titles, notes, tags and the text inside screenshots.
+- **Lists you name yourself**, each with a colour. The home page has a **Stats** card with item counts per
+  list (this week, month, year or all time). Long-press a list to rename it, recolour it or delete it.
+- **Status** for every item: Plan to read/watch, Reading/Watching, Finished, On hold, Dropped.
+- **Progress**: pages for books, and season/episode for series. **Find with AI** looks up the totals
+  (Open Library for books, TVmaze for series). When the on-device model is downloaded, it first cleans up messy titles.
+- **Search** across titles, notes, tags and the text inside screenshots.
 - **Review**: star ratings, a watched/read/visited flag, and notes.
 - **Ask Revue**: chat with an on-device LLM (Qwen 2.5 via flutter_gemma/MediaPipe) about
   your library. Before the model is downloaded, the chat works as plain search.

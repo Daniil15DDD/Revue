@@ -72,7 +72,6 @@ class _AssistantPageState extends State<AssistantPage> {
               middle: const Text('Ask Revue'),
               border: null,
               transitionBetweenRoutes: false,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             )
           : AppBar(title: Text('Ask Revue', style: t.headlineSmall)),
       body: Column(children: [

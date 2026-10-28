@@ -6,15 +6,18 @@ import 'package:flutter/foundation.dart';
 import 'ai.dart';
 import 'link_fetcher.dart';
 import 'models.dart';
+import 'progress_finder.dart';
 
 /// The whole library: one JSON file plus a folder of thumbnails, all on the device.
 class Store extends ChangeNotifier {
-  Store(this.dir, {LinkFetcher? fetcher, this.llm, Future<String> Function(String path)? ocr})
+  Store(this.dir, {LinkFetcher? fetcher, ProgressFinder? finder, this.llm, Future<String> Function(String path)? ocr})
       : fetcher = fetcher ?? LinkFetcher(),
+        finder = finder ?? ProgressFinder(),
         ocr = ocr ?? Ocr.read;
 
   final Directory dir;
   final LinkFetcher fetcher;
+  final ProgressFinder finder;
   final Future<String> Function(String path) ocr;
 
   /// Returns the on-device model when one is ready, else null (AI steps are skipped).
@@ -50,9 +53,9 @@ class Store extends ChangeNotifier {
       appearance = (j['settings'] as Map?)?['appearance'] ?? 'system';
     } else {
       lists = [
-        RevueList(name: 'Watch later', emoji: '🎬'),
-        RevueList(name: 'To read', emoji: '📚'),
-        RevueList(name: 'Places', emoji: '📍'),
+        RevueList(name: 'Movies & TV', color: listPalette[0]),
+        RevueList(name: 'Books', color: listPalette[3]),
+        RevueList(name: 'Places', color: listPalette[1]),
       ];
       await save();
     }
@@ -165,6 +168,29 @@ class Store extends ChangeNotifier {
     // Only refine generic kinds; a YouTube URL stays a video whatever the model says.
     if (a.kind != null && (item.kind == Kind.link || item.kind == Kind.note)) item.kind = a.kind!;
     await _commit();
+    if (item.kind.progressUnit != null && item.total == null) await findProgress(item);
+  }
+
+  /// Looks up total pages (books) or episodes per season (series). The on-device model, when
+  /// downloaded, first turns a messy page title into the plain book/series name.
+  Future<bool> findProgress(Item item) async {
+    if (item.kind.progressUnit == null) return false;
+    final model = llm?.call();
+    processing.add(item.id);
+    notifyListeners();
+    try {
+      final info = await finder.find(item.title,
+          series: item.kind == Kind.show,
+          ask: model == null ? null : (prompt) => model.generate('You extract names. Reply with the name only.', prompt));
+      if (info == null) return false;
+      item.seasons = info.seasons;
+      item.total = info.pages ?? info.episodes;
+      if (item.total != null && item.progress > item.total!) item.progress = item.total!;
+      return item.total != null;
+    } finally {
+      processing.remove(item.id);
+      await _commit();
+    }
   }
 
   Future<String> _writeThumb(String id, List<int> bytes) async {
@@ -189,11 +215,33 @@ class Store extends ChangeNotifier {
     await _commit();
   }
 
-  Future<RevueList> addList(String name, String emoji) async {
-    final l = RevueList(name: name, emoji: emoji.isEmpty ? '📌' : emoji);
+  Future<RevueList> addList(String name, {int? color}) async {
+    final l = RevueList(name: name, color: color);
     lists.add(l);
     await _commit();
     return l;
+  }
+
+  Future<void> editList(RevueList list, {String? name, int? color}) {
+    if (name != null && name.trim().isNotEmpty) list.name = name.trim();
+    if (color != null) list.color = color;
+    return _commit();
+  }
+
+  Future<void> setStatus(Item item, Status s) {
+    item.setStatus(s);
+    return _commit();
+  }
+
+  Future<void> setProgress(Item item, int value) {
+    item.setProgress(value);
+    return _commit();
+  }
+
+  /// Items saved in [period], optionally only one list — the numbers on the Stats card.
+  int count(Period period, {String? listId}) {
+    final from = period.start(DateTime.now());
+    return items.where((i) => (listId == null || i.listId == listId) && (from == null || !i.created.isBefore(from))).length;
   }
 
   Future<void> deleteList(RevueList list) async {
@@ -203,4 +251,21 @@ class Store extends ChangeNotifier {
     }
     await _commit();
   }
+}
+
+enum Period {
+  week('This week'),
+  month('This month'),
+  year('This year'),
+  all('All time');
+
+  const Period(this.label);
+  final String label;
+
+  DateTime? start(DateTime now) => switch (this) {
+        week => DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1)),
+        month => DateTime(now.year, now.month),
+        year => DateTime(now.year),
+        all => null,
+      };
 }

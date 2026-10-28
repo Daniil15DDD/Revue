@@ -196,7 +196,8 @@ class Brain {
       if (names[i.listId] != null) b.write(' · list: ${names[i.listId]}');
       b.write(' · saved ${i.created.toIso8601String().substring(0, 10)}');
       if (i.rating > 0) b.write(' · rated ${i.rating}/5');
-      if (i.done) b.write(' · done');
+      b.write(' · ${i.status.label(i.kind).toLowerCase()}');
+      if (i.progressLabel != null) b.write(' (${i.progressLabel})');
       if (i.tags.isNotEmpty) b.write(' · tags: ${i.tags.join(', ')}');
       if (i.summary.isNotEmpty) b.write('\n  ${clip(i.summary, 120)}');
       if (i.note.isNotEmpty) b.write('\n  note: ${clip(i.note, 120)}');

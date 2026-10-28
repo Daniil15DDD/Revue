@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../adaptive.dart';
 import '../models.dart';
 import '../store.dart';
+import '../widgets.dart';
 
 class ItemPage extends StatefulWidget {
   const ItemPage({super.key, required this.store, required this.item});
@@ -39,17 +40,9 @@ class _ItemPageState extends State<ItemPage> {
     if (url != null) await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  String get _doneLabel => switch (item.kind) {
-        Kind.video || Kind.movie => 'Watched',
-        Kind.place => 'Visited',
-        Kind.book || Kind.article => 'Read',
-        Kind.music => 'Listened',
-        _ => 'Done',
-      };
-
   String get _listName {
     final l = store.lists.where((l) => l.id == item.listId).firstOrNull;
-    return l == null ? 'None' : '${l.emoji} ${l.name}';
+    return l == null ? 'None' : l.display;
   }
 
   Future<void> _delete() async {
@@ -61,7 +54,7 @@ class _ItemPageState extends State<ItemPage> {
   Future<void> _pickList() async {
     final v = await pickOption<String>(context, [
       const SheetOption('', 'None'),
-      for (final l in store.lists) SheetOption(l.id, '${l.emoji} ${l.name}'),
+      for (final l in store.lists) SheetOption(l.id, l.display),
     ], title: 'Move to list');
     if (v != null) _change(() => item.listId = v.isEmpty ? null : v);
   }
@@ -69,11 +62,156 @@ class _ItemPageState extends State<ItemPage> {
   Future<void> _pickKind() async {
     final v = await pickOption<Kind>(context, [for (final k in Kind.values) SheetOption(k, k.label, icon: k.icon(context))],
         title: 'Type');
-    if (v != null) _change(() => item.kind = v);
+    if (v == null) return;
+    _change(() => item.kind = v);
+    if (v.progressUnit != null && item.total == null) _find();
+  }
+
+  Future<void> _pickStatus() async {
+    final v = await pickOption<Status>(context, [for (final s in Status.values) SheetOption(s, s.label(item.kind))],
+        title: 'Status');
+    if (v != null) {
+      await store.setStatus(item, v);
+      setState(() {});
+    }
+  }
+
+  Future<void> _setProgress(int v) async {
+    await store.setProgress(item, v);
+    setState(() {});
+  }
+
+  Future<void> _find() async {
+    final found = await store.findProgress(item);
+    if (!mounted) return;
+    setState(() {});
+    if (!found) await _enterTotal(notFound: true);
+  }
+
+  Future<void> _enterTotal({bool notFound = false}) async {
+    final unit = item.kind.progressUnit!;
+    final v = await promptText(context, notFound ? 'Couldn’t find it' : 'Total $unit',
+        hint: notFound ? 'Enter total $unit yourself' : 'Number of $unit', initial: item.total?.toString() ?? '');
+    final n = int.tryParse(v?.trim() ?? '');
+    if (n == null || n <= 0) return;
+    item.total = n;
+    item.seasons = [];
+    await _setProgress(item.progress);
+  }
+
+  Future<void> _typeProgress() async {
+    final unit = item.kind.progressUnit!;
+    final v = await promptText(context, item.kind == Kind.show ? 'Episodes watched' : 'Current page',
+        hint: item.total == null ? unit : 'of ${item.total} $unit', initial: '${item.progress}', action: 'Set');
+    final n = int.tryParse(v?.trim() ?? '');
+    if (n != null) await _setProgress(n);
+  }
+
+  Widget _roundButton(IconData icon, String label, VoidCallback onTap) => Semantics(
+        button: true,
+        label: label,
+        child: Pressable(
+          onTap: onTap,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: CupertinoDynamicColor.resolve(CupertinoColors.tertiarySystemFill, context),
+            ),
+            child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
+      );
+
+  /// Pages read / episodes watched, with steppers. Unknown total → look it up or type it.
+  Widget _progressBody() {
+    final ios = isIOS(context);
+    final accent = Theme.of(context).colorScheme.primary;
+    final label = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
+    final secondary = CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final unit = item.kind.progressUnit!;
+    final busy = store.processing.contains(item.id);
+    if (item.total == null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Track how far you are. Revue can look up the number of $unit.',
+              style: TextStyle(fontSize: 15, color: secondary)),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: ios
+                  ? CupertinoButton.filled(
+                      onPressed: busy ? null : _find,
+                      child: busy
+                          ? const CupertinoActivityIndicator(color: CupertinoColors.white)
+                          : const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(CupertinoIcons.sparkles, size: 18),
+                              SizedBox(width: 6),
+                              Text('Find with AI'),
+                            ]),
+                    )
+                  : FilledButton.icon(
+                      onPressed: busy ? null : _find,
+                      icon: const Icon(Icons.auto_awesome, size: 18),
+                      label: Text(busy ? 'Looking up…' : 'Find with AI'),
+                    ),
+            ),
+            const SizedBox(width: 8),
+            ios
+                ? CupertinoButton(onPressed: _enterTotal, child: const Text('Enter'))
+                : TextButton(onPressed: _enterTotal, child: const Text('Enter')),
+          ]),
+        ]),
+      );
+    }
+    final se = item.seasonEpisode;
+    final (big, small) = item.kind == Kind.show
+        ? (se == null ? 'Not started' : 'Season ${se.$1} · Episode ${se.$2}', '${item.progress} of ${item.total} episodes')
+        : ('Page ${item.progress}', 'of ${item.total} pages · ${(item.progress * 100 / item.total!).round()}%');
+    final step = item.kind == Kind.book ? 10 : 1;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        GestureDetector(
+          onTap: _typeProgress,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(big, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.4, color: label)),
+            const SizedBox(height: 2),
+            Text(small, style: TextStyle(fontSize: 14, color: secondary, fontFeatures: const [FontFeature.tabularFigures()])),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        ProgressTrack(value: item.progress / item.total!, color: accent),
+        const SizedBox(height: 14),
+        Row(children: [
+          _roundButton(ios ? CupertinoIcons.minus : Icons.remove, 'Back $step', () => _setProgress(item.progress - step)),
+          const SizedBox(width: 10),
+          _roundButton(ios ? CupertinoIcons.plus : Icons.add, 'Forward $step', () => _setProgress(item.progress + step)),
+          const Spacer(),
+          if (item.kind == Kind.show && item.progress < item.total!)
+            ios
+                ? CupertinoButton.filled(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    onPressed: () => _setProgress(item.progress + 1),
+                    child: const Text('Next Episode'),
+                  )
+                : FilledButton(onPressed: () => _setProgress(item.progress + 1), child: const Text('Next episode')),
+          if (item.kind == Kind.book)
+            ios
+                ? CupertinoButton(onPressed: _typeProgress, child: const Text('Set Page'))
+                : TextButton(onPressed: _typeProgress, child: const Text('Set page')),
+        ]),
+      ]),
+    );
   }
 
   @override
-  Widget build(BuildContext context) => isIOS(context) ? _buildIOS(context) : _buildMaterial(context);
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: store, // redraw while a progress lookup runs
+        builder: (context, _) => isIOS(context) ? _buildIOS(context) : _buildMaterial(context),
+      );
 
   // MARK: shared pieces
 
@@ -135,17 +273,17 @@ class _ItemPageState extends State<ItemPage> {
     final label = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
     final secondary = CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return Scaffold(
+      extendBodyBehindAppBar: true, // content scrolls under the translucent bar
       appBar: CupertinoNavigationBar(
         previousPageTitle: 'Revue',
         border: null,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: _delete,
           child: const Icon(CupertinoIcons.trash),
         ),
       ),
-      body: ListView(padding: const EdgeInsets.only(bottom: 40), children: [
+      body: ListView(padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top, bottom: 40), children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -177,14 +315,21 @@ class _ItemPageState extends State<ItemPage> {
             ],
           ]),
         ),
+        if (item.kind.progressUnit != null)
+          CupertinoListSection.insetGrouped(
+            header: sectionHeader(context, 'Progress'),
+            children: [_progressBody()],
+          ),
         CupertinoListSection.insetGrouped(
           header: sectionHeader(context, 'Your review'),
           children: [
-            CupertinoListTile(title: const Text('Rating'), trailing: _stars()),
             CupertinoListTile(
-              title: Text(_doneLabel),
-              trailing: CupertinoSwitch(value: item.done, onChanged: (v) => _change(() => item.done = v)),
+              title: const Text('Status'),
+              additionalInfo: Text(item.status.label(item.kind)),
+              trailing: const CupertinoListTileChevron(),
+              onTap: _pickStatus,
             ),
+            CupertinoListTile(title: const Text('Rating'), trailing: _stars()),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: CupertinoTextField.borderless(
@@ -268,13 +413,26 @@ class _ItemPageState extends State<ItemPage> {
           const SizedBox(height: 16),
           Text(item.summary, style: t.bodyLarge),
         ],
+        if (item.kind.progressUnit != null) ...[
+          const SizedBox(height: 20),
+          _section('Progress'),
+          Container(decoration: surface(context, radius: 16), child: _progressBody()),
+        ],
         const SizedBox(height: 20),
         _section('Your review'),
-        Row(children: [
-          _stars(),
-          const Spacer(),
-          FilterChip(label: Text(_doneLabel), selected: item.done, onSelected: (v) => _change(() => item.done = v)),
-        ]),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            _stars(),
+            ActionChip(
+              avatar: const Icon(Icons.flag_outlined, size: 18),
+              label: Text(item.status.label(item.kind)),
+              onPressed: _pickStatus,
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: _note,

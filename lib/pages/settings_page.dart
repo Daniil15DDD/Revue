@@ -114,7 +114,7 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24 + MediaQuery.paddingOf(context).bottom),
         ]),
       ]),
     );

@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:revue/ai.dart';
 import 'package:revue/link_fetcher.dart';
 import 'package:revue/models.dart';
+import 'package:revue/progress_finder.dart';
 import 'package:revue/store.dart';
 
 final _png = List<int>.filled(500, 7); // fake image bytes (>100 so they count as a download)
@@ -17,6 +18,15 @@ http.Client _fakeWeb() => MockClient((req) async {
         return http.Response(jsonEncode({'title': 'Never Gonna Give You Up', 'author_name': 'Rick Astley'}), 200);
       }
       if (u.host == 'i.ytimg.com' || u.path.endsWith('.jpg')) return http.Response.bytes(_png, 200);
+      if (u.host == 'openlibrary.org') {
+        return http.Response(jsonEncode({'docs': [{'title': 'Project Hail Mary', 'number_of_pages_median': 496}]}), 200);
+      }
+      if (u.host == 'api.tvmaze.com') {
+        return http.Response(jsonEncode({'name': 'Breaking Bad', '_embedded': {'episodes': [
+          for (var e = 1; e <= 7; e++) {'season': 1, 'number': e},
+          for (var e = 1; e <= 13; e++) {'season': 2, 'number': e},
+        ]}}), 200);
+      }
       if (u.host == 'blog.example') {
         return http.Response('<meta property="og:title" content="Why sleep matters">'
             '<meta property="og:image" content="/cover.jpg">', 200);
@@ -36,12 +46,12 @@ void main() {
   tearDown(() => dir.delete(recursive: true));
 
   Store make({Llm? llm}) => Store(dir,
-      fetcher: LinkFetcher(_fakeWeb()), llm: () => llm, ocr: (_) async => 'CAFE LUNA\nFlat white 4.50\nhttps://cafeluna.example');
+      fetcher: LinkFetcher(_fakeWeb()), finder: ProgressFinder(_fakeWeb()), llm: () => llm, ocr: (_) async => 'CAFE LUNA\nFlat white 4.50\nhttps://cafeluna.example');
 
   test('first load creates starter lists and persists them', () async {
     final s = make();
     await s.load();
-    expect(s.lists.map((l) => l.name), contains('Watch later'));
+    expect(s.lists.map((l) => l.name), contains('Movies & TV'));
     final again = make();
     await again.load();
     expect(again.lists.length, s.lists.length);
@@ -96,7 +106,7 @@ void main() {
   test('everything survives a reload; deleting a list keeps its items', () async {
     final s = make();
     await s.load();
-    final list = await s.addList('Recipes', '🍝');
+    final list = await s.addList('Recipes');
     final note = await s.addNote('Grandma\'s pasta\nboil water', listId: list.id);
     note.rating = 5;
     await s.update(note);
@@ -119,6 +129,35 @@ void main() {
     final again = make();
     await again.load();
     expect(again.appearance, 'dark');
+  });
+
+  test('finds total pages for books and episodes per season for series', () async {
+    final s = make();
+    await s.load();
+    final book = Item(title: 'Project Hail Mary by Andy Weir | Goodreads', kind: Kind.book);
+    final show = Item(title: 'Breaking Bad (TV Series 2008–2013) - IMDb', kind: Kind.show);
+    s.items.addAll([book, show]);
+    expect(await s.findProgress(book), isTrue);
+    expect(book.total, 496);
+    expect(await s.findProgress(show), isTrue);
+    expect(show.seasons, [7, 13]);
+    expect(show.total, 20);
+    expect(await s.findProgress(Item(title: 'x', kind: Kind.video)), isFalse);
+  });
+
+  test('lists can be renamed, recoloured, and counted per period', () async {
+    final s = make();
+    await s.load();
+    final l = await s.addList('Anime');
+    await s.editList(l, name: 'Anime 2026', color: listPalette[4]);
+    expect((l.name, l.color), ('Anime 2026', listPalette[4]));
+    s.items.addAll([
+      Item(title: 'new', kind: Kind.show, listId: l.id),
+      Item(title: 'old', kind: Kind.show, listId: l.id, created: DateTime(2020)),
+    ]);
+    expect(s.count(Period.all, listId: l.id), 2);
+    expect(s.count(Period.week, listId: l.id), 1);
+    expect(s.count(Period.year), 1);
   });
 
   test('a corrupt library file is kept aside and the app still starts', () async {

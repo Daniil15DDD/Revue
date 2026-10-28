@@ -98,6 +98,7 @@ class _RevueAppState extends State<RevueApp> {
         _ => ThemeMode.system,
       },
       home: Scaffold(
+        extendBody: platform == TargetPlatform.iOS, // content scrolls under the translucent tab bar
         body: IndexedStack(index: _tab, children: [
           LibraryPage(store: widget.store),
           AssistantPage(store: widget.store, llm: widget.llm, openSettings: () => setState(() => _tab = 2)),
