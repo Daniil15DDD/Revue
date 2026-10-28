@@ -4,20 +4,24 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'ai.dart';
+import 'catalog.dart';
 import 'link_fetcher.dart';
 import 'models.dart';
 import 'progress_finder.dart';
 
 /// The whole library: one JSON file plus a folder of thumbnails, all on the device.
 class Store extends ChangeNotifier {
-  Store(this.dir, {LinkFetcher? fetcher, ProgressFinder? finder, this.llm, Future<String> Function(String path)? ocr})
+  Store(this.dir,
+      {LinkFetcher? fetcher, ProgressFinder? finder, Catalog? catalog, this.llm, Future<String> Function(String path)? ocr})
       : fetcher = fetcher ?? LinkFetcher(),
         finder = finder ?? ProgressFinder(),
+        catalog = catalog ?? Catalog(),
         ocr = ocr ?? Ocr.read;
 
   final Directory dir;
   final LinkFetcher fetcher;
   final ProgressFinder finder;
+  final Catalog catalog;
   final Future<String> Function(String path) ocr;
 
   /// Returns the on-device model when one is ready, else null (AI steps are skipped).
@@ -197,6 +201,30 @@ class Store extends ChangeNotifier {
       processing.remove(item.id);
       await _commit();
     }
+  }
+
+  /// Adds a book/series picked from search, with its cover and totals, already filed and tagged.
+  Future<Item> addFromCatalog(CatalogResult r, {required Status status, String? listId}) async {
+    final existing = r.url == null ? null : items.where((i) => i.url == r.url).firstOrNull;
+    if (existing != null) return existing;
+    final item = Item(title: r.title, url: r.url, kind: r.kind, listId: listId, source: r.subtitle);
+    items.insert(0, item);
+    processing.add(item.id);
+    await _commit();
+    try {
+      if (r.tvmazeId != null) item.seasons = await catalog.seasons(r.tvmazeId!);
+      if (item.seasons.isEmpty && r.episodes != null) item.seasons = [r.episodes!];
+      item.total = r.pages ?? (item.seasons.isEmpty ? null : item.seasons.reduce((a, b) => a + b));
+      item.setStatus(status);
+      if (r.imageUrl != null) {
+        final bytes = await fetcher.downloadImage(r.imageUrl!);
+        if (bytes != null) item.thumbnail = await _writeThumb(item.id, bytes);
+      }
+    } finally {
+      processing.remove(item.id);
+      await _commit();
+    }
+    return item;
   }
 
   Future<String> _writeThumb(String id, List<int> bytes) async {

@@ -8,6 +8,7 @@ import '../models.dart';
 import '../store.dart';
 import '../widgets.dart';
 import 'item_page.dart';
+import 'search_page.dart';
 
 class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key, required this.store});
@@ -17,7 +18,7 @@ class LibraryPage extends StatefulWidget {
   State<LibraryPage> createState() => _LibraryPageState();
 }
 
-enum _Add { paste, screenshots, note, list }
+enum _Add { search, paste, screenshots, note, list }
 
 enum _ListAction { rename, color, delete }
 
@@ -226,6 +227,8 @@ class _LibraryPageState extends State<LibraryPage> {
   Future<void> _add() async {
     final ios = isIOS(context);
     final choice = await pickOption<_Add>(context, [
+      SheetOption(_Add.search, 'Search Books & Shows', icon: ios ? CupertinoIcons.search : Icons.travel_explore,
+          subtitle: 'Find a series, anime or book and add it with one tap'),
       SheetOption(_Add.paste, 'Paste Link', icon: ios ? CupertinoIcons.doc_on_clipboard : Icons.content_paste,
           subtitle: 'YouTube, articles, books, series, places'),
       SheetOption(_Add.screenshots, 'Choose Screenshots', icon: ios ? CupertinoIcons.photo_on_rectangle : Icons.photo_library_outlined,
@@ -236,6 +239,12 @@ class _LibraryPageState extends State<LibraryPage> {
     ]);
     if (!mounted || choice == null) return;
     switch (choice) {
+      case _Add.search:
+        await Navigator.push(
+            context,
+            ios
+                ? CupertinoPageRoute(builder: (_) => SearchPage(store: store, listId: _listId))
+                : MaterialPageRoute(builder: (_) => SearchPage(store: store, listId: _listId)));
       case _Add.paste:
         final clip = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
         if (!mounted) return;
