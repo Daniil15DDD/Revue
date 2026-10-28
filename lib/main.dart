@@ -97,6 +97,7 @@ class _RevueAppState extends State<RevueApp> {
     final ctx = _nav.currentContext;
     if (ctx == null) return;
     final store = widget.store;
+    // ignore: use_build_context_synchronously — ctx is the navigator's own context, read just above with no gap.
     switch (await showAddMenu(ctx)) {
       case AddAction.list:
         if (!ctx.mounted) return;

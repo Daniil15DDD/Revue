@@ -15,7 +15,7 @@ Future<AddAction?> showAddMenu(BuildContext context) {
     barrierLabel: 'Close',
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 560),
-    pageBuilder: (ctx, a, _) => _AddMenu(animation: a),
+    pageBuilder: (ctx, a, _) => Material(type: MaterialType.transparency, child: _AddMenu(animation: a)),
   );
 }
 

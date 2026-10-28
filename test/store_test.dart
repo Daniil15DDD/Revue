@@ -51,13 +51,20 @@ void main() {
   Store make({Llm? llm}) => Store(dir,
       fetcher: LinkFetcher(_fakeWeb()), finder: ProgressFinder(_fakeWeb()), llm: () => llm, ocr: (_) async => 'CAFE LUNA\nFlat white 4.50\nhttps://cafeluna.example');
 
-  test('first load creates starter lists and persists them', () async {
+  test('a new library starts empty; folders and lists persist with colour and folder', () async {
     final s = make();
     await s.load();
-    expect(s.lists.map((l) => l.name), contains('Movies & TV'));
+    expect(s.lists, isEmpty);
+    expect(s.folders, isEmpty);
+    final f = await s.addFolder('Entertainment');
+    final l = await s.addList('Anime', color: listPalette[4], folderId: f.id);
     final again = make();
     await again.load();
-    expect(again.lists.length, s.lists.length);
+    expect(again.folders.single.name, 'Entertainment');
+    expect((again.lists.single.name, again.lists.single.folderId, again.lists.single.color), ('Anime', f.id, listPalette[4]));
+    await again.deleteFolder(again.folders.single);
+    expect(again.lists.single.folderId, isNull); // lists survive their folder
+    expect(l.name, 'Anime');
   });
 
   test('YouTube share text becomes a video with title, channel and thumbnail', () async {
@@ -184,7 +191,6 @@ void main() {
     final s = make();
     await s.load();
     expect(s.items, isEmpty);
-    expect(s.lists, isNotEmpty);
     expect(dir.listSync().map((f) => f.path).any((p) => p.contains('revue.json.corrupt-')), isTrue);
   });
 

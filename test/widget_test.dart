@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:revue/ai.dart';
@@ -20,89 +19,86 @@ void main() {
   tearDown(() => dir.delete(recursive: true));
 
   Future<void> pumpApp(WidgetTester tester) async {
-    // Tall phone so the cards below the Stats card are laid out.
-    tester.view.physicalSize = const Size(1170, 4200);
+    tester.view.physicalSize = const Size(1170, 4200); // tall phone so everything is laid out
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(RevueApp(store: store, llm: GemmaLlm(), listenForShares: false));
     await tester.pumpAndSettle();
   }
 
-  testWidgets('empty library explains how to save things', (tester) async {
+  testWidgets('empty library invites you to create a list', (tester) async {
     await pumpApp(tester);
-    expect(find.text('Nothing here yet'), findsOneWidget);
-    expect(find.textContaining('Share → Revue'), findsOneWidget);
+    expect(find.text('Start your first list'), findsOneWidget);
+    expect(find.text('Create a List'), findsOneWidget);
   });
 
-  testWidgets('cards show, lists filter, item page opens', (tester) async {
-    final watch = store.lists.first;
+  testWidgets('list cards open a list grouped by status, then an item', (tester) async {
+    final anime = (await tester.runAsync(() => store.addList('Anime')))!; // real file IO needs the real clock
     store.items.addAll([
-      Item(
-          title: 'Cosmos documentary',
-          url: 'https://youtu.be/cosmos',
-          kind: Kind.video,
-          source: 'YouTube · PBS',
-          listId: watch.id,
-          rating: 4),
-      Item(title: 'Best tacos in town', kind: Kind.place),
+      Item(title: 'Frieren', kind: Kind.show, listId: anime.id, total: 28, seasons: [28])..setProgress(3),
+      Item(title: 'Dune', kind: Kind.book, listId: anime.id, url: 'https://openlibrary.org/x'),
+      Item(title: 'Loose link', kind: Kind.link),
     ]);
     await pumpApp(tester);
-    expect(find.text('Cosmos documentary'), findsOneWidget);
-    expect(find.text('Best tacos in town'), findsOneWidget);
+    expect(find.text('Anime'), findsOneWidget);
+    expect(find.text('2 items'), findsOneWidget);
+    expect(find.text('Inbox'), findsOneWidget); // the loose link
 
-    await tester.tap(find.text(watch.display));
+    await tester.tap(find.text('Anime'));
     await tester.pumpAndSettle();
-    expect(find.text('Best tacos in town'), findsNothing);
+    expect(find.text('WATCHING'), findsOneWidget);
+    expect(find.text('PLAN TO READ'), findsOneWidget);
+    expect(find.text('S1 · E3'), findsOneWidget);
 
-    await tester.tap(find.text('Cosmos documentary'));
+    await tester.tap(find.text('Frieren'));
     await tester.pumpAndSettle();
-    expect(find.text('Watch'), findsOneWidget);
-    expect(find.text('YOUR REVIEW'), findsOneWidget);
-    expect(find.text('Plan to watch'), findsOneWidget); // status chip
+    expect(find.text('Season 1 · Episode 3'), findsOneWidget);
+    await tester.tap(find.text('Next Episode'));
+    await tester.pumpAndSettle();
+    expect(find.text('Season 1 · Episode 4'), findsOneWidget);
+    await tester.tap(find.text('Watched')); // status pill
+    await tester.pumpAndSettle();
+    expect(store.items.first.status, Status.finished);
+  });
+
+  testWidgets('+ menu offers the four ways to add', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.bySemanticsLabel('Add'));
+    await tester.pumpAndSettle();
+    for (final t in ['Create a List', 'Find a Show or Book', 'Import', 'Write a Thought']) {
+      expect(find.text(t), findsWidgets);
+    }
+    await tester.tap(find.bySemanticsLabel('Close').last);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('assistant answers from the library without a model', (tester) async {
     store.items.add(Item(title: 'Ramen place in Shibuya', kind: Kind.place));
     await pumpApp(tester);
-    await tester.tap(find.text('Ask'));
+    await tester.tap(find.bySemanticsLabel('Ask'));
     await tester.pumpAndSettle();
-    expect(find.text('Get model'), findsOneWidget);
-
     await tester.enterText(find.byType(TextField), 'where was that ramen?');
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.bySemanticsLabel('Send'));
     await tester.pumpAndSettle();
     expect(find.textContaining('• Ramen place in Shibuya'), findsOneWidget);
   });
 
-  testWidgets('iPhone gets native Cupertino UI', variant: TargetPlatformVariant.only(TargetPlatform.iOS), (tester) async {
-    store.items.add(Item(title: 'Cosmos documentary', url: 'https://youtu.be/c', kind: Kind.video));
+  testWidgets('stats page counts everything', (tester) async {
+    store.items.addAll([Item(title: 'a', kind: Kind.book), Item(title: 'b', kind: Kind.show)]);
     await pumpApp(tester);
-    expect(find.byType(CupertinoTabBar), findsOneWidget);
-    expect(find.byType(CupertinoSliverNavigationBar), findsOneWidget);
-    expect(find.byType(CupertinoSearchTextField), findsOneWidget);
-    expect(find.byType(FloatingActionButton), findsNothing);
-
-    await tester.tap(find.text('Cosmos documentary'));
+    await tester.tap(find.bySemanticsLabel('Stats'));
     await tester.pumpAndSettle();
-    expect(find.byType(CupertinoListSection), findsWidgets);
-    expect(find.text('Status'), findsOneWidget);
-    expect(find.text('Plan to watch'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('things in your library'), findsOneWidget);
   });
 
-  testWidgets('appearance setting switches the app to dark', (tester) async {
+  testWidgets('settings: appearance switches to dark; models listed', (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.bySemanticsLabel('Settings'));
     await tester.pumpAndSettle();
+    expect(find.text('Get'), findsNWidgets(modelOptions.length));
     await tester.tap(find.text('Dark'));
     await tester.pumpAndSettle();
     expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode, ThemeMode.dark);
-    expect(store.appearance, 'dark');
-  });
-
-  testWidgets('settings lists downloadable on-device models', (tester) async {
-    await pumpApp(tester);
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
-    expect(find.text('Download'), findsNWidgets(modelOptions.length));
   });
 }

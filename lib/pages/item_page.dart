@@ -1,10 +1,10 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../adaptive.dart';
 import '../models.dart';
 import '../store.dart';
+import '../theme.dart';
 import '../widgets.dart';
 
 class ItemPage extends StatefulWidget {
@@ -67,20 +67,13 @@ class _ItemPageState extends State<ItemPage> {
   }
 
   Future<void> _pickKind() async {
-    final v = await pickOption<Kind>(context, [for (final k in Kind.values) SheetOption(k, k.label, icon: k.icon(context))],
-        title: 'Type');
+    final v = await pickOption<Kind>(context, [
+      for (final k in Kind.values)
+        SheetOption(k, k.label, icon: k.icon(context)),
+    ], title: 'Type');
     if (v == null) return;
     _change(() => item.kind = v);
     if (v.progressUnit != null && item.total == null) _find();
-  }
-
-  Future<void> _pickStatus() async {
-    final v = await pickOption<Status>(context, [for (final s in Status.values) SheetOption(s, s.label(item.kind))],
-        title: 'Status');
-    if (v != null) {
-      await store.setStatus(item, v);
-      setState(() {});
-    }
   }
 
   Future<void> _setProgress(int v) async {
@@ -97,8 +90,12 @@ class _ItemPageState extends State<ItemPage> {
 
   Future<void> _enterTotal({bool notFound = false}) async {
     final unit = item.kind.progressUnit!;
-    final v = await promptText(context, notFound ? 'Couldn’t find it' : 'Total $unit',
-        hint: notFound ? 'Enter total $unit yourself' : 'Number of $unit', initial: item.total?.toString() ?? '');
+    final v = await promptText(
+      context,
+      notFound ? 'Couldn’t find it' : 'Total $unit',
+      hint: notFound ? 'Enter total $unit yourself' : 'Number of $unit',
+      initial: item.total?.toString() ?? '',
+    );
     final n = int.tryParse(v?.trim() ?? '');
     if (n == null || n <= 0) return;
     item.total = n;
@@ -108,378 +105,525 @@ class _ItemPageState extends State<ItemPage> {
 
   Future<void> _typeProgress() async {
     final unit = item.kind.progressUnit!;
-    final v = await promptText(context, item.kind == Kind.show ? 'Episodes watched' : 'Current page',
-        hint: item.total == null ? unit : 'of ${item.total} $unit', initial: '${item.progress}', action: 'Set');
+    final v = await promptText(
+      context,
+      item.kind == Kind.show ? 'Episodes watched' : 'Current page',
+      hint: item.total == null ? unit : 'of ${item.total} $unit',
+      initial: '${item.progress}',
+      action: 'Set',
+    );
     final n = int.tryParse(v?.trim() ?? '');
     if (n != null) await _setProgress(n);
   }
 
-  Widget _roundButton(IconData icon, String label, VoidCallback onTap) => Semantics(
-        button: true,
-        label: label,
-        child: Pressable(
-          onTap: onTap,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: CupertinoDynamicColor.resolve(CupertinoColors.tertiarySystemFill, context),
-            ),
-            child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          ),
-        ),
-      );
+  Widget _card({
+    required Widget child,
+    EdgeInsets padding = const EdgeInsets.all(18),
+  }) => Container(
+    padding: padding,
+    decoration: surface(context, radius: 26),
+    child: child,
+  );
 
-  /// Pages read / episodes watched, with steppers. Unknown total → look it up or type it.
-  Widget _progressBody() {
-    final ios = isIOS(context);
-    final accent = Theme.of(context).colorScheme.primary;
-    final label = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
-    final secondary = CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+  /// Pages read / episodes watched. Unknown total → look it up or type it.
+  Widget _progress() {
+    final rv = Rv.of(context);
     final unit = item.kind.progressUnit!;
     final busy = store.processing.contains(item.id);
     if (item.total == null) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Track how far you are. Revue can look up the number of $unit.',
-              style: TextStyle(fontSize: 15, color: secondary)),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: ios
-                  ? CupertinoButton.filled(
-                      onPressed: busy ? null : _find,
-                      child: busy
-                          ? const CupertinoActivityIndicator(color: CupertinoColors.white)
-                          : const Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(CupertinoIcons.sparkles, size: 18),
-                              SizedBox(width: 6),
-                              Text('Find with AI'),
-                            ]),
-                    )
-                  : FilledButton.icon(
-                      onPressed: busy ? null : _find,
-                      icon: const Icon(Icons.auto_awesome, size: 18),
-                      label: Text(busy ? 'Looking up…' : 'Find with AI'),
-                    ),
+      return _card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Track your progress', style: RvText.headline(rv.text)),
+            const SizedBox(height: 4),
+            Text(
+              'Revue can look up the number of $unit for you.',
+              style: RvText.body(rv.text2),
             ),
-            const SizedBox(width: 8),
-            ios
-                ? CupertinoButton(onPressed: _enterTotal, child: const Text('Enter'))
-                : TextButton(onPressed: _enterTotal, child: const Text('Enter')),
-          ]),
-        ]),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: PillButton(
+                    label: busy ? 'Looking up…' : 'Find with AI',
+                    icon: Icons.auto_awesome,
+                    onTap: busy ? null : _find,
+                    compact: true,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                PillButton(
+                  label: 'Enter',
+                  primary: false,
+                  compact: true,
+                  onTap: _enterTotal,
+                ),
+              ],
+            ),
+          ],
+        ),
       );
     }
     final se = item.seasonEpisode;
     final (big, small) = item.kind == Kind.show
-        ? (se == null ? 'Not started' : 'Season ${se.$1} · Episode ${se.$2}', item.ongoing ? '${item.progress} of ${item.total} out so far · still airing' : '${item.progress} of ${item.total} episodes')
-        : ('Page ${item.progress}', 'of ${item.total} pages · ${(item.progress * 100 / item.total!).round()}%');
+        ? (
+            se == null ? 'Not started' : 'Season ${se.$1} · Episode ${se.$2}',
+            item.ongoing
+                ? '${item.progress} of ${item.total} out so far · still airing'
+                : '${item.progress} of ${item.total} episodes',
+          )
+        : (
+            'Page ${item.progress}',
+            'of ${item.total} pages · ${(item.progress * 100 / item.total!).round()}%',
+          );
     final step = item.kind == Kind.book ? 10 : 1;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        GestureDetector(
-          onTap: _typeProgress,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(big, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.4, color: label)),
-            const SizedBox(height: 2),
-            Text(small, style: TextStyle(fontSize: 14, color: secondary, fontFeatures: const [FontFeature.tabularFigures()])),
-          ]),
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Pressable(
+            scale: 0.98,
+            onTap: _typeProgress,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(big, style: RvText.title(rv.text)),
+                const SizedBox(height: 4),
+                Text(
+                  small,
+                  style: RvText.small(rv.text2).copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          ProgressTrack(
+            value: item.progress / item.total!,
+            color: rv.accent,
+            height: 10,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              RoundButton(
+                icon: Icons.remove_rounded,
+                tooltip: 'Back $step',
+                onTap: () => _setProgress(item.progress - step),
+              ),
+              const SizedBox(width: 10),
+              RoundButton(
+                icon: Icons.add_rounded,
+                tooltip: 'Forward $step',
+                onTap: () => _setProgress(item.progress + step),
+              ),
+              const Spacer(),
+              if (item.kind == Kind.show && item.progress < item.total!)
+                PillButton(
+                  label: 'Next Episode',
+                  compact: true,
+                  onTap: () => _setProgress(item.progress + 1),
+                ),
+              if (item.kind == Kind.book)
+                PillButton(
+                  label: 'Set Page',
+                  compact: true,
+                  primary: false,
+                  onTap: _typeProgress,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statuses() {
+    final rv = Rv.of(context);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final s in Status.values)
+          Padding(
+            padding: EdgeInsets.zero,
+            child: Semantics(
+              button: true,
+              selected: item.status == s,
+              child: Pressable(
+                onTap: () async {
+                  await store.setStatus(item, s);
+                  setState(() {});
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 11,
+                  ),
+                  decoration: BoxDecoration(
+                    color: item.status == s ? rv.ink : rv.raised,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    s.label(item.kind),
+                    style: TextStyle(
+                      fontFamily: font,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: item.status == s ? rv.onInk : rv.text,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _stars() {
+    final rv = Rv.of(context);
+    return Row(
+      children: [
+        for (var s = 1; s <= 5; s++)
+          Semantics(
+            button: true,
+            label: '$s star${s > 1 ? 's' : ''}',
+            child: Pressable(
+              scale: 0.8,
+              onTap: () =>
+                  _change(() => item.rating = item.rating == s ? 0 : s),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  s <= item.rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  size: 34,
+                  color: s <= item.rating ? rv.accent : rv.text3,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _row(String label, String value, IconData icon, VoidCallback onTap) {
+    final rv = Rv.of(context);
+    return Pressable(
+      scale: 0.98,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: rv.raised,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 19, color: rv.text),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(label, style: RvText.body(rv.text))),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Text(
+                value,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: RvText.body(rv.text2),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: rv.text3),
+          ],
         ),
-        const SizedBox(height: 12),
-        ProgressTrack(value: item.progress / item.total!, color: accent),
-        const SizedBox(height: 14),
-        Row(children: [
-          _roundButton(ios ? CupertinoIcons.minus : Icons.remove, 'Back $step', () => _setProgress(item.progress - step)),
-          const SizedBox(width: 10),
-          _roundButton(ios ? CupertinoIcons.plus : Icons.add, 'Forward $step', () => _setProgress(item.progress + step)),
-          const Spacer(),
-          if (item.kind == Kind.show && item.progress < item.total!)
-            ios
-                ? CupertinoButton.filled(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    onPressed: () => _setProgress(item.progress + 1),
-                    child: const Text('Next Episode'),
-                  )
-                : FilledButton(onPressed: () => _setProgress(item.progress + 1), child: const Text('Next episode')),
-          if (item.kind == Kind.book)
-            ios
-                ? CupertinoButton(onPressed: _typeProgress, child: const Text('Set Page'))
-                : TextButton(onPressed: _typeProgress, child: const Text('Set page')),
-        ]),
-      ]),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: store, // redraw while a progress lookup runs
-        builder: (context, _) => isIOS(context) ? _buildIOS(context) : _buildMaterial(context),
-      );
+    listenable: store, // redraw while a progress lookup runs
+    builder: (context, _) => _build(context),
+  );
 
-  // MARK: shared pieces
-
-  Widget _hero() {
+  Widget _build(BuildContext context) {
+    final rv = Rv.of(context);
     final thumb = store.thumbFile(item);
-    if (thumb == null) return const SizedBox();
-    return GestureDetector(
-      onTap: item.url != null ? _open : null,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(isIOS(context) ? 14 : 16),
-        child: Image.file(thumb, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox()),
-      ),
-    );
-  }
-
-  Widget _sourceRow() {
-    final t = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    return Row(children: [
-      Icon(item.kind.icon(context), size: 15, color: scheme.primary),
-      const SizedBox(width: 6),
-      Expanded(
-        child: Text(item.source.isNotEmpty ? item.source : item.kind.label,
-            maxLines: 1, overflow: TextOverflow.ellipsis, style: t.labelLarge?.copyWith(color: scheme.primary)),
-      ),
-      Text(MaterialLocalizations.of(context).formatMediumDate(item.created),
-          style: t.labelMedium?.copyWith(color: scheme.onSurfaceVariant)),
-    ]);
-  }
-
-  Widget _stars() {
-    final color = Theme.of(context).colorScheme.primary;
-    final ios = isIOS(context);
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      for (var s = 1; s <= 5; s++)
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _change(() => item.rating = item.rating == s ? 0 : s),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Semantics(
-              label: '$s star${s > 1 ? 's' : ''}',
-              button: true,
-              child: Icon(
-                s <= item.rating ? (ios ? CupertinoIcons.star_fill : Icons.star) : (ios ? CupertinoIcons.star : Icons.star_border),
-                color: color,
-                size: ios ? 24 : 28,
-              ),
-            ),
-          ),
-        ),
-    ]);
-  }
-
-  // MARK: iPhone
-
-  Widget _buildIOS(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final label = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
-    final secondary = CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      extendBodyBehindAppBar: true, // content scrolls under the translucent bar
-      appBar: CupertinoNavigationBar(
-        previousPageTitle: 'Revue',
-        border: null,
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _delete,
-          child: const Icon(CupertinoIcons.trash),
-        ),
-      ),
-      body: ListView(padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top, bottom: 40), children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            _hero(),
-            const SizedBox(height: 14),
-            _sourceRow(),
-            const SizedBox(height: 4),
-            CupertinoTextField.borderless(
-              controller: _title,
-              maxLines: null,
-              padding: EdgeInsets.zero,
-              style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w700, color: label),
-              onChanged: (v) => _change(() => item.title = v),
-            ),
-            if (item.summary.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(item.summary, style: t.bodyLarge?.copyWith(color: secondary)),
-            ],
-            if (item.url != null) ...[
-              const SizedBox(height: 14),
-              // One prominent action per screen: for books/series that's the progress button below.
-              (item.kind.progressUnit != null ? CupertinoButton.tinted : CupertinoButton.filled)(
-                onPressed: _open,
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(item.kind == Kind.video ? CupertinoIcons.play_fill : CupertinoIcons.arrow_up_right_square, size: 18),
-                  const SizedBox(width: 8),
-                  Text(item.kind == Kind.video ? 'Watch' : 'Open'),
-                ]),
+      body: Stack(
+        children: [
+          ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // Cover with floating back / delete buttons.
+              Stack(
+                children: [
+                  if (thumb != null)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(36),
+                      ),
+                      child: SizedBox(
+                        height: top + 300,
+                        width: double.infinity,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.file(
+                              thumb,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  ColoredBox(color: rv.raised),
+                            ),
+                            const DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0x59000000),
+                                    Color(0x00000000),
+                                  ],
+                                  stops: [0, 0.4],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    SizedBox(height: top + 64),
+                ],
               ),
-            ],
-          ]),
-        ),
-        if (item.kind.progressUnit != null)
-          CupertinoListSection.insetGrouped(
-            header: sectionHeader(context, 'Progress'),
-            children: [_progressBody()],
-          ),
-        CupertinoListSection.insetGrouped(
-          header: sectionHeader(context, 'Your review'),
-          children: [
-            CupertinoListTile(
-              title: const Text('Status'),
-              additionalInfo: Text(item.status.label(item.kind)),
-              trailing: const CupertinoListTileChevron(),
-              onTap: _pickStatus,
-            ),
-            CupertinoListTile(title: const Text('Rating'), trailing: _stars()),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: CupertinoTextField.borderless(
-                controller: _note,
-                placeholder: 'Thoughts, why you saved it…',
-                minLines: 3,
-                maxLines: null,
-                onChanged: (v) => _change(() => item.note = v),
-              ),
-            ),
-          ],
-        ),
-        CupertinoListSection.insetGrouped(
-          header: sectionHeader(context, 'Filed under'),
-          children: [
-            CupertinoListTile(
-              title: const Text('List'),
-              additionalInfo: Text(_listName),
-              trailing: const CupertinoListTileChevron(),
-              onTap: _pickList,
-            ),
-            CupertinoListTile(
-              title: const Text('Type'),
-              additionalInfo: Text(item.kind.label),
-              trailing: const CupertinoListTileChevron(),
-              onTap: _pickKind,
-            ),
-            if (item.tags.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.all(12),
-                child: Wrap(spacing: 6, runSpacing: 6, children: [
-                  for (final tag in item.tags)
-                    Pill(
-                      label: '#$tag',
-                      selected: false,
-                      onTap: () {},
-                      onLongPress: () => _change(() => item.tags = [...item.tags]..remove(tag)),
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 60),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          item.kind.materialIcon,
+                          size: 16,
+                          color: rv.accent,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            item.source.isNotEmpty
+                                ? item.source
+                                : item.kind.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: RvText.small(
+                              rv.accent,
+                            ).copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Text(
+                          MaterialLocalizations.of(
+                            context,
+                          ).formatMediumDate(item.created),
+                          style: RvText.small(rv.text3),
+                        ),
+                      ],
                     ),
-                ]),
+                    TextField(
+                      controller: _title,
+                      maxLines: null,
+                      style: RvText.display(rv.text).copyWith(fontSize: 30),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      onChanged: (v) => _change(() => item.title = v),
+                    ),
+                    if (item.summary.isNotEmpty)
+                      Text(item.summary, style: RvText.body(rv.text2)),
+                    if (item.url != null) ...[
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: PillButton(
+                          label: item.kind == Kind.video ? 'Watch' : 'Open',
+                          icon: item.kind == Kind.video
+                              ? Icons.play_arrow_rounded
+                              : Icons.north_east_rounded,
+                          // One prominent action per screen: for books/series that's the progress button.
+                          primary: item.kind.progressUnit == null,
+                          compact: true,
+                          onTap: _open,
+                        ),
+                      ),
+                    ],
+                    if (item.kind.progressUnit != null) ...[
+                      const SectionLabel('Progress'),
+                      _progress(),
+                    ],
+                    const SectionLabel('Status'),
+                    _statuses(),
+                    const SectionLabel('Your review'),
+                    _card(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _stars(),
+                          const SizedBox(height: 8),
+                          RvField(
+                            controller: _note,
+                            hint: 'Thoughts, why you saved it…',
+                            multiline: true,
+                            onChanged: (v) => _change(() => item.note = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SectionLabel('Filed under'),
+                    _card(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      child: Column(
+                        children: [
+                          _row(
+                            'List',
+                            _listName,
+                            Icons.collections_bookmark_outlined,
+                            _pickList,
+                          ),
+                          Divider(height: 1, color: rv.stroke),
+                          _row(
+                            'Type',
+                            item.kind.label,
+                            item.kind.materialIcon,
+                            _pickKind,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (item.tags.isNotEmpty) ...[
+                      const SectionLabel('Tags'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final tag in item.tags)
+                            Pill(
+                              label: '#$tag',
+                              selected: false,
+                              onTap: () {},
+                              onLongPress: () => _change(
+                                () => item.tags = [...item.tags]..remove(tag),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                    if (item.text.isNotEmpty) ...[
+                      SectionLabel(
+                        item.kind == Kind.note ? 'Note' : 'Text found in image',
+                      ),
+                      _card(
+                        child: SelectableText(
+                          item.text,
+                          style: RvText.body(rv.text),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-          ],
-        ),
-        if (item.text.isNotEmpty)
-          CupertinoListSection.insetGrouped(
-            header: sectionHeader(context, item.kind == Kind.note ? 'Note' : 'Text found in image'),
-            children: [Padding(padding: const EdgeInsets.all(14), child: SelectableText(item.text))],
+            ],
           ),
-      ]),
+          // Status-bar fade so scrolled text never sits under the clock, plus pinned buttons.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: top + 12,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      rv.bg.withValues(alpha: 0.9),
+                      rv.bg.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: top + 8,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                _floating(
+                  Icons.arrow_back_ios_new_rounded,
+                  'Back',
+                  () => Navigator.maybePop(context),
+                  true,
+                ),
+                const Spacer(),
+                _floating(
+                  Icons.delete_outline_rounded,
+                  'Delete',
+                  _delete,
+                  true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  // MARK: Android
-
-  Widget _buildMaterial(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Scaffold(
-      appBar: AppBar(actions: [
-        IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: _delete),
-      ]),
-      body: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 40), children: [
-        _hero(),
-        const SizedBox(height: 16),
-        _sourceRow(),
-        TextField(
-          controller: _title,
-          maxLines: null,
-          style: t.headlineSmall,
-          decoration: const InputDecoration(border: InputBorder.none),
-          onChanged: (v) => _change(() => item.title = v),
-        ),
-        if (item.url != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.tonalIcon(
-              onPressed: _open,
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: Text(item.kind == Kind.video ? 'Watch' : 'Open'),
-            ),
+  Widget _floating(
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+    bool overImage,
+  ) {
+    final rv = Rv.of(context);
+    return Semantics(
+      button: true,
+      label: label,
+      child: Pressable(
+        scale: 0.9,
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: overImage ? Colors.black.withValues(alpha: 0.38) : rv.raised,
+            shape: BoxShape.circle,
           ),
-        if (item.summary.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(item.summary, style: t.bodyLarge),
-        ],
-        if (item.kind.progressUnit != null) ...[
-          const SizedBox(height: 20),
-          _section('Progress'),
-          Container(decoration: surface(context, radius: 16), child: _progressBody()),
-        ],
-        const SizedBox(height: 20),
-        _section('Your review'),
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          children: [
-            _stars(),
-            ActionChip(
-              avatar: const Icon(Icons.flag_outlined, size: 18),
-              label: Text(item.status.label(item.kind)),
-              onPressed: _pickStatus,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _note,
-          maxLines: null,
-          minLines: 2,
-          decoration: const InputDecoration(hintText: 'Thoughts, why you saved it…', border: OutlineInputBorder()),
-          onChanged: (v) => _change(() => item.note = v),
-        ),
-        const SizedBox(height: 20),
-        _section('Filed under'),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          ActionChip(avatar: const Icon(Icons.folder_outlined, size: 18), label: Text(_listName), onPressed: _pickList),
-          ActionChip(avatar: Icon(item.kind.icon(context), size: 18), label: Text(item.kind.label), onPressed: _pickKind),
-        ]),
-        if (item.tags.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final tag in item.tags)
-              InputChip(label: Text('#$tag'), onDeleted: () => _change(() => item.tags = [...item.tags]..remove(tag))),
-          ]),
-        ],
-        if (item.text.isNotEmpty && item.kind != Kind.note) ...[
-          const SizedBox(height: 12),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('Text found in image'),
-            children: [SelectableText(item.text)],
+          child: Icon(
+            icon,
+            size: 21,
+            color: overImage ? Colors.white : rv.text,
           ),
-        ],
-        if (item.kind == Kind.note) ...[
-          const SizedBox(height: 12),
-          SelectableText(item.text, style: t.bodyLarge),
-        ],
-      ]),
+        ),
+      ),
     );
   }
-
-  Widget _section(String s) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Text(s.toUpperCase(), style: Theme.of(context).textTheme.labelSmall?.copyWith(letterSpacing: 1.2)),
-      );
 }

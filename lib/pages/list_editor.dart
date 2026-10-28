@@ -52,10 +52,11 @@ class _ListEditorState extends State<_ListEditor> {
 
   Future<void> _pickPhoto() async {
     final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600);
-    if (x != null) setState(() {
-        _imagePath = x.path;
-        _hasImage = true;
-      });
+    if (x == null) return;
+    setState(() {
+      _imagePath = x.path;
+      _hasImage = true;
+    });
   }
 
   Future<void> _save() async {

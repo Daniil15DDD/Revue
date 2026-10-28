@@ -1,7 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../adaptive.dart';
+import '../theme.dart';
+import '../widgets.dart';
 import '../ai.dart';
 import '../store.dart';
 
@@ -61,35 +62,30 @@ class _AssistantPageState extends State<AssistantPage> {
         }
       });
 
+
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    final ios = isIOS(context);
+    final rv = Rv.of(context);
+    final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      appBar: ios
-          ? CupertinoNavigationBar(
-              middle: const Text('Ask Revue'),
-              border: null,
-              transitionBetweenRoutes: false,
-            )
-          : AppBar(title: Text('Ask Revue', style: t.headlineSmall)),
       body: Column(children: [
-        ListenableBuilder(listenable: widget.llm, builder: (context, _) => widget.llm.ready ? const SizedBox() : _modelBanner(context)),
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, top + 14, 20, 6),
+          child: Row(children: [
+            Text('Ask', style: RvText.display(rv.text)),
+            const SizedBox(width: 10),
+            Icon(Icons.auto_awesome, color: rv.accent),
+          ]),
+        ),
+        ListenableBuilder(listenable: widget.llm, builder: (context, _) => widget.llm.ready ? const SizedBox() : _modelBanner(rv)),
         Expanded(
           child: _turns.isEmpty
-              ? ListView(padding: const EdgeInsets.all(24), children: [
-                  const SizedBox(height: 24),
-                  Icon(ios ? CupertinoIcons.sparkles : Icons.auto_awesome, size: 44, color: scheme.primary),
-                  const SizedBox(height: 12),
-                  Text('Ask anything about what you\'ve saved.',
-                      textAlign: TextAlign.center,
-                      style: ios ? t.titleLarge?.copyWith(fontWeight: FontWeight.w600) : t.titleLarge),
-                  const SizedBox(height: 6),
-                  Text('Runs entirely on your phone. Nothing is uploaded.',
-                      textAlign: TextAlign.center, style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-                  const SizedBox(height: 24),
-                  Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
+              ? ListView(padding: const EdgeInsets.fromLTRB(24, 30, 24, 24), children: [
+                  Text('Ask anything about what you\'ve saved.', style: RvText.title(rv.text)),
+                  const SizedBox(height: 8),
+                  Text('Runs entirely on your phone. Nothing is uploaded.', style: RvText.body(rv.text2)),
+                  const SizedBox(height: 22),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
                     for (final s in _suggestions) Pill(label: s, selected: false, onTap: () => _ask(s)),
                   ]),
                 ])
@@ -100,117 +96,77 @@ class _AssistantPageState extends State<AssistantPage> {
                   itemBuilder: (context, i) {
                     final (q, a) = _turns[i];
                     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      _bubble(q, mine: true),
+                      _bubble(rv, q, mine: true),
                       a.isEmpty
                           ? Align(
                               alignment: Alignment.centerLeft,
                               child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: ios
-                                    ? const CupertinoActivityIndicator()
-                                    : const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                                padding: const EdgeInsets.all(14),
+                                child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: rv.text2)),
                               ),
                             )
-                          : _bubble(a, mine: false),
+                          : _bubble(rv, a, mine: false),
                     ]);
                   },
                 ),
         ),
-        SafeArea(top: false, child: ios ? _iosInput(context) : _materialInput()),
+        // Input floats above the tab bar.
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, 6, 16, MediaQuery.paddingOf(context).bottom + 100),
+          child: Row(children: [
+            Expanded(child: RvField(controller: _input, hint: 'Ask about your library', onSubmitted: _ask)),
+            const SizedBox(width: 10),
+            Semantics(
+              button: true,
+              label: 'Send',
+              child: Pressable(
+                scale: 0.88,
+                onTap: _busy ? null : () => _ask(_input.text),
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(color: rv.ink, shape: BoxShape.circle),
+                  child: Icon(Icons.arrow_upward_rounded, color: rv.onInk),
+                ),
+              ),
+            ),
+          ]),
+        ),
       ]),
     );
   }
 
-  Widget _modelBanner(BuildContext context) {
-    if (!isIOS(context)) {
-      return MaterialBanner(
-        content: const Text('Download the on-device AI model to chat. Until then, answers are plain search.'),
-        leading: const Icon(Icons.download_for_offline_outlined),
-        actions: [TextButton(onPressed: widget.openSettings, child: const Text('Get model'))],
+  Widget _modelBanner(Rv rv) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          decoration: surface(context, radius: 22),
+          child: Row(children: [
+            Icon(Icons.download_rounded, color: rv.accent),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Get the on-device model to chat. Until then, answers are plain search.', style: RvText.small(rv.text2))),
+            const SizedBox(width: 8),
+            PillButton(label: 'Get', compact: true, onTap: widget.openSettings),
+          ]),
+        ),
       );
-    }
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-      padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
-      decoration: BoxDecoration(
-        color: CupertinoDynamicColor.resolve(CupertinoColors.secondarySystemGroupedBackground, context),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(children: [
-        Icon(CupertinoIcons.arrow_down_circle, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 10),
-        const Expanded(child: Text('Download the on-device model to chat. Until then, answers are plain search.',
-            style: TextStyle(fontSize: 14))),
-        CupertinoButton(onPressed: widget.openSettings, child: const Text('Get')),
-      ]),
-    );
-  }
 
-  Widget _iosInput(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 8, 8),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Expanded(
-            child: CupertinoTextField(
-              controller: _input,
-              placeholder: 'Ask about your library',
-              textInputAction: TextInputAction.send,
-              onSubmitted: _ask,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: CupertinoDynamicColor.resolve(CupertinoColors.secondarySystemGroupedBackground, context),
-                border: Border.all(color: CupertinoDynamicColor.resolve(CupertinoColors.separator, context)),
-                borderRadius: BorderRadius.circular(20),
-              ),
+  Widget _bubble(Rv rv, String text, {required bool mine}) => Align(
+        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+          decoration: BoxDecoration(
+            color: mine ? rv.ink : rv.surface,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(22),
+              topRight: const Radius.circular(22),
+              bottomLeft: Radius.circular(mine ? 22 : 6),
+              bottomRight: Radius.circular(mine ? 6 : 22),
             ),
           ),
-          CupertinoButton(
-            padding: const EdgeInsets.only(left: 6, bottom: 2),
-            minimumSize: Size.zero,
-            onPressed: _busy ? null : () => _ask(_input.text),
-            child: Semantics(label: 'Send', child: const Icon(CupertinoIcons.arrow_up_circle_fill, size: 34)),
-          ),
-        ]),
+          child: SelectableText(text, style: RvText.body(mine ? rv.onInk : rv.text)),
+        ),
       );
-
-  Widget _materialInput() => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-        child: Row(children: [
-          Expanded(
-            child: TextField(
-              controller: _input,
-              textInputAction: TextInputAction.send,
-              onSubmitted: _ask,
-              decoration: InputDecoration(
-                hintText: 'Ask about your library…',
-                filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton.filled(
-            tooltip: 'Send',
-            onPressed: _busy ? null : () => _ask(_input.text),
-            icon: const Icon(Icons.arrow_upward),
-          ),
-        ]),
-      );
-
-  Widget _bubble(String text, {required bool mine}) {
-    final scheme = Theme.of(context).colorScheme;
-    final ios = isIOS(context);
-    final other = ios ? CupertinoDynamicColor.resolve(CupertinoColors.systemGrey5, context) : scheme.surfaceContainerHighest;
-    return Align(
-      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
-        decoration: BoxDecoration(color: mine ? scheme.primary : other, borderRadius: BorderRadius.circular(18)),
-        child: SelectableText(text,
-            style: TextStyle(fontSize: ios ? 16 : null, color: mine ? scheme.onPrimary : scheme.onSurface)),
-      ),
-    );
-  }
 }

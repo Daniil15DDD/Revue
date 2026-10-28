@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../adaptive.dart';
 import '../catalog.dart';
 import '../models.dart';
 import '../store.dart';
+import '../theme.dart';
 import '../widgets.dart';
 
 /// Search TVmaze / AniList / Open Library and add a result with its status and list in two taps.
@@ -25,6 +25,7 @@ class _SearchPageState extends State<SearchPage> {
   List<CatalogResult> _results = [];
   bool _loading = false;
   final Set<String> _added = {};
+  final _field = TextEditingController();
   Timer? _debounce;
   int _searchId = 0; // ignore answers from older searches that arrive late
 
@@ -33,6 +34,7 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _field.dispose();
     super.dispose();
   }
 
@@ -79,66 +81,42 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ios = isIOS(context);
+    final rv = Rv.of(context);
     final hint = switch (_kind) {
       CatalogKind.series => 'Search TV series',
       CatalogKind.anime => 'Search anime',
       CatalogKind.books => 'Search books or authors',
     };
     return Scaffold(
-      appBar: ios
-          ? const CupertinoNavigationBar(middle: Text('Search'), previousPageTitle: 'Revue', border: null)
-          : AppBar(title: const Text('Search & add')),
+      appBar: const TopBar(title: 'Find'),
       body: Column(children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: ios
-              ? CupertinoSearchTextField(autofocus: true, placeholder: hint, onChanged: _onQuery)
-              : TextField(
-                  autofocus: true,
-                  onChanged: _onQuery,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                  ),
-                ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+          child: RvField(controller: _field, hint: hint, autofocus: true, prefix: Icons.search_rounded, onChanged: _onQuery),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: SizedBox(
-            width: double.infinity,
-            child: ios
-                ? CupertinoSlidingSegmentedControl<CatalogKind>(
-                    groupValue: _kind,
-                    onValueChanged: (k) {
-                      setState(() => _kind = k ?? _kind);
-                      _search();
-                    },
-                    children: {for (final k in CatalogKind.values) k: Text(k.label)},
-                  )
-                : SegmentedButton<CatalogKind>(
-                    showSelectedIcon: false,
-                    segments: [for (final k in CatalogKind.values) ButtonSegment(value: k, label: Text(k.label))],
-                    selected: {_kind},
-                    onSelectionChanged: (s) {
-                      setState(() => _kind = s.first);
-                      _search();
-                    },
-                  ),
-          ),
+        SizedBox(
+          height: 44,
+          child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+            for (final k in CatalogKind.values)
+              Tag(
+                label: k.label,
+                selected: _kind == k,
+                onTap: () {
+                  setState(() => _kind = k);
+                  _search();
+                },
+              ),
+          ]),
         ),
-        Expanded(child: _body(context)),
+        const SizedBox(height: 8),
+        Expanded(child: _body(context, rv)),
       ]),
     );
   }
 
-  Widget _body(BuildContext context) {
-    final secondary = CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+  Widget _body(BuildContext context, Rv rv) {
     if (_loading && _results.isEmpty) {
-      return Center(child: isIOS(context) ? const CupertinoActivityIndicator() : const CircularProgressIndicator());
+      return Center(child: SizedBox.square(dimension: 26, child: CircularProgressIndicator(strokeWidth: 2.5, color: rv.text2)));
     }
     if (_results.isEmpty) {
       final source = switch (_kind) {
@@ -148,71 +126,62 @@ class _SearchPageState extends State<SearchPage> {
       };
       return Padding(
         padding: const EdgeInsets.all(32),
-        child: Text(
-          _query.trim().isEmpty ? 'Type a title. Results come from $source.' : 'Nothing found on $source.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 15, color: secondary),
-        ),
+        child: Text(_query.trim().isEmpty ? 'Type a title. Results come from $source.' : 'Nothing found on $source.',
+            textAlign: TextAlign.center, style: RvText.body(rv.text2)),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
       itemCount: _results.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, i) => _row(context, _results[i]),
+      itemBuilder: (context, i) => _row(context, rv, _results[i]),
     );
   }
 
-  Widget _row(BuildContext context, CatalogResult r) {
-    final ios = isIOS(context);
-    final label = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
-    final secondary = CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
-    final accent = Theme.of(context).colorScheme.primary;
+  Widget _row(BuildContext context, Rv rv, CatalogResult r) {
     final added = _added.contains(r.url ?? r.title);
     return Semantics(
       button: true,
       label: added ? '${r.title}, added' : 'Add ${r.title}',
       child: Pressable(
+        scale: 0.98,
         onTap: added ? null : () => _add(r),
         child: Container(
-          decoration: surface(context, radius: 14),
+          decoration: surface(context, radius: 24),
           padding: const EdgeInsets.all(10),
           child: Row(children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(14),
               child: SizedBox(
-                width: 52,
-                height: 76,
+                width: 58,
+                height: 84,
                 child: r.imageUrl == null
-                    ? ColoredBox(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        child: Icon(r.kind.icon(context), color: Theme.of(context).colorScheme.onPrimaryContainer),
-                      )
+                    ? ColoredBox(color: rv.raised, child: Icon(r.kind.materialIcon, color: rv.text3))
                     : Image.network(r.imageUrl.toString(),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => ColoredBox(color: Theme.of(context).colorScheme.primaryContainer)),
+                        fit: BoxFit.cover, errorBuilder: (_, _, _) => ColoredBox(color: rv.raised)),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(r.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.2, color: label)),
+                Text(r.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: RvText.headline(rv.text).copyWith(fontSize: 16)),
                 if (r.subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(r.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: secondary)),
+                  const SizedBox(height: 4),
+                  Text(r.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: RvText.small(rv.text2)),
                 ],
               ]),
             ),
             const SizedBox(width: 8),
-            Icon(
-              added
-                  ? (ios ? CupertinoIcons.checkmark_circle_fill : Icons.check_circle)
-                  : (ios ? CupertinoIcons.plus_circle_fill : Icons.add_circle),
-              color: added ? secondary : accent,
-              size: 28,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+              child: Container(
+                key: ValueKey(added),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: added ? rv.raised : rv.ink, shape: BoxShape.circle),
+                child: Icon(added ? Icons.check_rounded : Icons.add_rounded, color: added ? rv.text2 : rv.onInk, size: 24),
+              ),
             ),
           ]),
         ),
