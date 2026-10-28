@@ -171,6 +171,20 @@ void main() {
     expect(screenshotTitle(''), '');
   });
 
+  test('manual add: series with total, book finished, cover copied', () async {
+    final s = make();
+    await s.load();
+    final l = await s.addList('Anime');
+    final show = await s.addManual('  Rare OVA  ', kind: Kind.show, total: 6, listId: l.id);
+    expect((show.title, show.total, show.status, show.listId), ('Rare OVA', 6, Status.planned, l.id));
+    expect(show.seasons, [6]);
+    final img = File('${dir.path}/c.png')..writeAsBytesSync(_png);
+    final book = await s.addManual('Zine', kind: Kind.book, total: 40, status: Status.finished, imagePath: img.path);
+    expect((book.progress, book.thumbnail != null), (40, true));
+    expect(book.seasons, isEmpty);
+    expect(s.items.first, book);
+  });
+
   test('lists can be renamed, recoloured, and counted per period', () async {
     final s = make();
     await s.load();

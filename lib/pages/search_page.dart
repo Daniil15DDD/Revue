@@ -8,6 +8,7 @@ import '../models.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'manual_add.dart';
 
 /// Search TVmaze / AniList / Open Library and add a result with its status and list in two taps.
 class SearchPage extends StatefulWidget {
@@ -124,19 +125,56 @@ class _SearchPageState extends State<SearchPage> {
         CatalogKind.anime => 'AniList',
         CatalogKind.books => 'Open Library',
       };
-      return Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text(_query.trim().isEmpty ? 'Type a title. Results come from $source.' : 'Nothing found on $source.',
+      return ListView(padding: const EdgeInsets.all(32), children: [
+        Text(_query.trim().isEmpty ? 'Type a title. Results come from $source.' : 'Nothing found on $source.',
             textAlign: TextAlign.center, style: RvText.body(rv.text2)),
-      );
+        const SizedBox(height: 18),
+        Center(child: PillButton(label: 'Add it yourself', icon: Icons.edit_rounded, primary: _query.trim().isNotEmpty, onTap: _manual)),
+      ]);
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-      itemCount: _results.length,
+      itemCount: _results.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, i) => _row(context, rv, _results[i]),
+      itemBuilder: (context, i) => i < _results.length ? _row(context, rv, _results[i]) : _manualRow(rv),
     );
   }
+
+  /// The kind the current tab suggests for a hand-made item.
+  Kind get _manualKind => _kind == CatalogKind.books ? Kind.book : Kind.show;
+
+  Future<void> _manual() async {
+    final item = await showManualAdd(context, store, title: _query.trim(), kind: _manualKind, listId: widget.listId);
+    if (item != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added “${item.title}”')));
+    }
+  }
+
+  /// Last row under results: for when the right one isn't there.
+  Widget _manualRow(Rv rv) => Pressable(
+        scale: 0.98,
+        onTap: _manual,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), border: Border.all(color: rv.stroke)),
+          child: Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: rv.raised, borderRadius: BorderRadius.circular(14)),
+              child: Icon(Icons.edit_rounded, color: rv.text),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Can’t find it?', style: RvText.headline(rv.text).copyWith(fontSize: 16)),
+                Text('Add it yourself — title, cover, episodes or pages', style: RvText.small(rv.text2)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: rv.text3),
+          ]),
+        ),
+      );
 
   Widget _row(BuildContext context, Rv rv, CatalogResult r) {
     final added = _added.contains(r.url ?? r.title);

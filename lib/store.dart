@@ -201,6 +201,17 @@ class Store extends ChangeNotifier {
     }
   }
 
+  /// Something the databases don't have, typed in by hand. [total] = episodes or pages if known.
+  Future<Item> addManual(String title,
+      {required Kind kind, Status status = Status.planned, String? listId, int? total, String? imagePath, String note = ''}) async {
+    final item = Item(title: title.trim(), kind: kind, listId: listId, note: note.trim(), total: total, seasons: total != null && kind == Kind.show ? [total] : null);
+    if (imagePath != null) item.thumbnail = await _writeThumb(item.id, await File(imagePath).readAsBytes());
+    item.setStatus(status);
+    items.insert(0, item);
+    await _commit();
+    return item;
+  }
+
   /// Adds a book/series picked from search, with its cover and totals, already filed and tagged.
   Future<Item> addFromCatalog(CatalogResult r, {required Status status, String? listId}) async {
     final existing = r.url == null ? null : items.where((i) => i.url == r.url).firstOrNull;
