@@ -304,7 +304,8 @@ class _ItemPageState extends State<ItemPage> {
             ],
             if (item.url != null) ...[
               const SizedBox(height: 14),
-              CupertinoButton.filled(
+              // One prominent action per screen: for books/series that's the progress button below.
+              (item.kind.progressUnit != null ? CupertinoButton.tinted : CupertinoButton.filled)(
                 onPressed: _open,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(item.kind == Kind.video ? CupertinoIcons.play_fill : CupertinoIcons.arrow_up_right_square, size: 18),
