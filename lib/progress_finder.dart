@@ -127,7 +127,16 @@ class ProgressFinder {
           as Map<String, dynamic>?;
     }
 
-    var m = await media('search: \$s, type: ANIME', {'s': query});
+    // Prefer the main TV series over OVAs/specials; links often spell numbers ("steins-gate-zero" → "0").
+    Map<String, dynamic>? m;
+    for (final q in {query, query.replaceAll(RegExp(r'\bzero\b', caseSensitive: false), '0')}) {
+      final hit = await media('search: \$s, type: ANIME', {'s': q});
+      if (hit != null && const ['TV', 'TV_SHORT', 'ONA'].contains(hit['format'])) {
+        m = hit;
+        break;
+      }
+      m ??= hit;
+    }
     if (m == null) return null;
     final title = (m['title'] as Map?)?['english'] ?? (m['title'] as Map?)?['romaji'] ?? query;
     final seasons = <int>[];
