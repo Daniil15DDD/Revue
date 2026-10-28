@@ -11,6 +11,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'ai.dart';
 import 'adaptive.dart';
+import 'launch_splash.dart';
 import 'models.dart';
 import 'pages/add_menu.dart';
 import 'pages/assistant_page.dart';
@@ -34,6 +35,7 @@ Future<void> main() async {
   final store = Store(Directory('${docs.path}/revue'), llm: () => llm.ready ? llm : null);
   await store.load();
   unawaited(llm.restore().catchError((Object e) => debugPrint('model restore failed: $e')));
+  await precacheLaunchLogo(); // first frame must already show the logo
   runApp(RevueApp(store: store, llm: llm));
 }
 
@@ -148,6 +150,7 @@ class _RevueAppState extends State<RevueApp> {
         debugShowCheckedModeBanner: false,
         navigatorKey: _nav,
         scaffoldMessengerKey: _messenger,
+        builder: (context, child) => LaunchSplash(child: child!),
         theme: revueTheme(Brightness.light, platform),
         darkTheme: revueTheme(Brightness.dark, platform),
         themeMode: switch (widget.store.appearance) {
