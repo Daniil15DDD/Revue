@@ -44,22 +44,22 @@ class SettingsPage extends StatelessWidget {
         const CupertinoSliverNavigationBar(largeTitle: Text('Settings'), border: null, transitionBetweenRoutes: false),
         SliverList.list(children: [
           CupertinoListSection.insetGrouped(
-            header: const Text('APPEARANCE'),
+            header: sectionHeader(context, 'Appearance'),
             children: [
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: CupertinoSlidingSegmentedControl<String>(
-                  groupValue: store.appearance,
-                  onValueChanged: (v) => store.setAppearance(v ?? 'system'),
-                  children: {for (final e in _appearances.entries) e.key: Text(e.value)},
+              for (final e in _appearances.entries)
+                CupertinoListTile(
+                  title: Text(e.value),
+                  trailing: store.appearance == e.key
+                      ? Icon(CupertinoIcons.checkmark_alt, color: CupertinoTheme.of(context).primaryColor)
+                      : null,
+                  onTap: () => store.setAppearance(e.key),
                 ),
-              ),
             ],
           ),
           CupertinoListSection.insetGrouped(
-            header: const Text('ON-DEVICE AI MODEL'),
-            footer: const Text('Powers auto-tagging and the assistant. Downloaded once over Wi-Fi, then everything '
-                'runs offline on your iPhone. Reading text in screenshots works without it.'),
+            header: sectionHeader(context, 'On-device AI Model'),
+            footer: sectionFooter(context, 'Powers auto-tagging and the assistant. Downloaded once over Wi-Fi, then '
+                'everything runs offline on your iPhone. Reading text in screenshots works without it.'),
             children: [
               for (final o in modelOptions)
                 CupertinoListTile(
@@ -90,7 +90,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
           CupertinoListSection.insetGrouped(
-            header: const Text('SAVING FROM OTHER APPS'),
+            header: sectionHeader(context, 'Saving From Other Apps'),
             children: [
               CupertinoListTile(
                 leading: icon(CupertinoIcons.share, CupertinoColors.systemBlue),
@@ -105,7 +105,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
           CupertinoListSection.insetGrouped(
-            header: const Text('PRIVACY'),
+            header: sectionHeader(context, 'Privacy'),
             children: [
               CupertinoListTile(
                 leading: icon(CupertinoIcons.lock_fill, CupertinoColors.systemGrey),

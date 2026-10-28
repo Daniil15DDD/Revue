@@ -4,6 +4,20 @@ import 'package:flutter/material.dart';
 /// iPhone gets Apple-style (Cupertino) controls; Android keeps Material.
 bool isIOS(BuildContext context) => Theme.of(context).platform == TargetPlatform.iOS;
 
+/// iOS grouped-list section header/footer: small grey caption (inside MaterialApp the
+/// sections would otherwise inherit Material's large body text).
+Widget sectionHeader(BuildContext context, String text) => Text(
+      text.toUpperCase(),
+      style: TextStyle(
+          fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: -0.08,
+          color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context)),
+    );
+
+Widget sectionFooter(BuildContext context, String text) => Text(
+      text,
+      style: TextStyle(fontSize: 13, color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context)),
+    );
+
 /// Yes/no question: CupertinoAlertDialog on iPhone, AlertDialog on Android.
 Future<bool> confirm(BuildContext context, String title,
     {String? message, String action = 'Delete', bool destructive = true}) async {

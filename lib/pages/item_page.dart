@@ -178,7 +178,7 @@ class _ItemPageState extends State<ItemPage> {
           ]),
         ),
         CupertinoListSection.insetGrouped(
-          header: const Text('YOUR REVIEW'),
+          header: sectionHeader(context, 'Your review'),
           children: [
             CupertinoListTile(title: const Text('Rating'), trailing: _stars()),
             CupertinoListTile(
@@ -198,7 +198,7 @@ class _ItemPageState extends State<ItemPage> {
           ],
         ),
         CupertinoListSection.insetGrouped(
-          header: const Text('FILED UNDER'),
+          header: sectionHeader(context, 'Filed under'),
           children: [
             CupertinoListTile(
               title: const Text('List'),
@@ -229,7 +229,7 @@ class _ItemPageState extends State<ItemPage> {
         ),
         if (item.text.isNotEmpty)
           CupertinoListSection.insetGrouped(
-            header: Text(item.kind == Kind.note ? 'NOTE' : 'TEXT FOUND IN IMAGE'),
+            header: sectionHeader(context, item.kind == Kind.note ? 'Note' : 'Text found in image'),
             children: [Padding(padding: const EdgeInsets.all(14), child: SelectableText(item.text))],
           ),
       ]),
