@@ -129,7 +129,7 @@ class _SearchPageState extends State<SearchPage> {
         Text(_query.trim().isEmpty ? 'Type a title. Results come from $source.' : 'Nothing found on $source.',
             textAlign: TextAlign.center, style: RvText.body(rv.text2)),
         const SizedBox(height: 18),
-        Center(child: PillButton(label: 'Add it yourself', icon: Icons.edit_rounded, primary: _query.trim().isNotEmpty, onTap: _manual)),
+        Center(child: PillButton(label: 'Add Manually', icon: Icons.edit_rounded, primary: _query.trim().isNotEmpty, onTap: _manual)),
       ]);
     }
     return ListView.separated(
@@ -168,7 +168,7 @@ class _SearchPageState extends State<SearchPage> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Can’t find it?', style: RvText.headline(rv.text).copyWith(fontSize: 16)),
-                Text('Add it yourself — title, cover, episodes or pages', style: RvText.small(rv.text2)),
+                Text('Add manually — title, cover, episodes or pages', style: RvText.small(rv.text2)),
               ]),
             ),
             Icon(Icons.chevron_right_rounded, color: rv.text3),

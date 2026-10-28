@@ -12,7 +12,7 @@ import '../widgets.dart';
 /// Types people add by hand when the databases don't have it.
 const _kinds = [Kind.show, Kind.book, Kind.movie, Kind.game, Kind.music, Kind.place, Kind.note];
 
-/// "Add it yourself": title, type, episodes/pages, cover, status and list in one sheet.
+/// "Add Manually": title, type, episodes/pages, cover, status and list in one sheet.
 Future<Item?> showManualAdd(BuildContext context, Store store, {String title = '', Kind kind = Kind.show, String? listId}) {
   return showRevueSheet<Item>(context, (ctx) => _ManualAdd(store: store, title: title, kind: kind, listId: listId));
 }
@@ -61,7 +61,7 @@ class _ManualAddState extends State<_ManualAdd> {
     return ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(18, 10, 18, 18), children: [
       Center(child: Container(width: 36, height: 5, decoration: BoxDecoration(color: rv.stroke, borderRadius: BorderRadius.circular(3)))),
       const SizedBox(height: 14),
-      Text('Add it yourself', textAlign: TextAlign.center, style: RvText.headline(rv.text)),
+      Text('Add Manually', textAlign: TextAlign.center, style: RvText.headline(rv.text)),
       const SizedBox(height: 16),
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Cover: tap to pick a photo.
