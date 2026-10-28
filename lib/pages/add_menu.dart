@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,9 @@ Future<AddAction?> showAddMenu(BuildContext context) {
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 560),
     pageBuilder: (ctx, a, _) => Material(type: MaterialType.transparency, child: _AddMenu(animation: a)),
+    // No route-level fade: an opacity layer over a BackdropFilter turns the blur off on device
+    // (that's what made it pop in at the end). The menu animates itself.
+    transitionBuilder: (ctx, a, _, child) => child,
   );
 }
 
@@ -42,15 +46,19 @@ class _AddMenu extends StatelessWidget {
     return AnimatedBuilder(
       animation: animation,
       builder: (context, _) {
-        final t = Curves.easeOut.transform(animation.value);
+        final t = Curves.easeOutCubic.transform(animation.value);
         return Stack(children: [
-          // Frosted backdrop: blur grows with the animation instead of popping in.
+          // Frosted glass ripples out from the + button (and shrinks back into it on close).
+          // A clipped constant blur renders reliably; fading or animating the blur radius pops on device.
           Positioned.fill(
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30 * t, sigmaY: 30 * t),
-                child: ColoredBox(color: Colors.black.withValues(alpha: 0.45 * t)),
+              child: ClipPath(
+                clipper: _Ripple(t, bottom + 24 + 32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                  child: const ColoredBox(color: Color(0x73000000)),
+                ),
               ),
             ),
           ),
@@ -152,4 +160,21 @@ class _AddMenu extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Circle centred on the + button whose radius grows from 0 to the far screen corner.
+class _Ripple extends CustomClipper<Path> {
+  _Ripple(this.t, this.fromBottom);
+  final double t;
+  final double fromBottom; // + button centre, measured from the bottom edge
+
+  @override
+  Path getClip(Size size) {
+    final c = Offset(size.width / 2, size.height - fromBottom);
+    final far = math.sqrt(math.pow(size.width / 2, 2) + math.pow(c.dy, 2));
+    return Path()..addOval(Rect.fromCircle(center: c, radius: 32 + (far - 32) * t));
+  }
+
+  @override
+  bool shouldReclip(_Ripple old) => old.t != t || old.fromBottom != fromBottom;
 }

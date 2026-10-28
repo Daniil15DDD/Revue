@@ -82,8 +82,9 @@ void main() {
     final book = await store.addFromCatalog(dune, status: Status.finished);
     expect((book.total, book.progress, book.done), (608, 608, true));
 
-    // Adding the same one twice doesn't duplicate it.
-    await store.addFromCatalog(dune, status: Status.planned);
+    // Adding the same one twice doesn't duplicate it, but applies the new choice.
+    await store.addFromCatalog(dune, status: Status.planned, listId: list.id);
     expect(store.items.length, 2);
+    expect((book.status, book.listId), (Status.planned, list.id));
   });
 }

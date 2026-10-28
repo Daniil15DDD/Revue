@@ -103,6 +103,12 @@ void main() {
     expect(s.progressLabel, contains('6 of 6 out · airing'));
   });
 
+  test('a total of 0 counts as unknown, never "finished at 0"', () {
+    final b = Item(title: 'x', kind: Kind.book, total: 0);
+    b.setProgress(5);
+    expect((b.total, b.progress, b.status), (null, 5, Status.active));
+  });
+
   test('series progress maps to season and episode', () {
     final s = Item(title: 'Breaking Bad', kind: Kind.show, total: 62, seasons: [7, 13, 13, 13, 16]);
     expect(s.seasonEpisode, isNull);

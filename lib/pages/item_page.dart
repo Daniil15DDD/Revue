@@ -27,7 +27,8 @@ class _ItemPageState extends State<ItemPage> {
   void initState() {
     super.initState();
     // Airing shows gain episodes: refresh the count quietly whenever the page opens.
-    if (item.ongoing) store.findProgress(item);
+    // After the first frame: findProgress notifies listeners, which must not happen mid-build.
+    if (item.ongoing) WidgetsBinding.instance.addPostFrameCallback((_) => store.findProgress(item));
   }
 
   @override
@@ -78,7 +79,7 @@ class _ItemPageState extends State<ItemPage> {
 
   Future<void> _setProgress(int v) async {
     await store.setProgress(item, v);
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> _find() async {
@@ -130,7 +131,7 @@ class _ItemPageState extends State<ItemPage> {
     final rv = Rv.of(context);
     final unit = item.kind.progressUnit!;
     final busy = store.processing.contains(item.id);
-    if (item.total == null) {
+    if (item.total == null || item.total! <= 0) {
       return _card(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -255,7 +256,7 @@ class _ItemPageState extends State<ItemPage> {
               child: Pressable(
                 onTap: () async {
                   await store.setStatus(item, s);
-                  setState(() {});
+                  if (mounted) setState(() {});
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
@@ -379,11 +380,13 @@ class _ItemPageState extends State<ItemPage> {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.file(
-                              thumb,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) =>
-                                  ColoredBox(color: rv.raised),
+                            Hero(
+                              tag: 'cover-${item.id}', // flies in from the list card
+                              child: Image.file(
+                                thumb,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => ColoredBox(color: rv.raised),
+                              ),
                             ),
                             const DecoratedBox(
                               decoration: BoxDecoration(

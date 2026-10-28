@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'models.dart';
 import 'store.dart';
@@ -40,11 +41,17 @@ class _PressableState extends State<Pressable> {
       onTapDown: enabled ? (_) => _set(true) : null,
       onTapUp: enabled ? (_) => _set(false) : null,
       onTapCancel: () => _set(false),
-      onTap: widget.onTap,
+      onTap: widget.onTap == null
+          ? null
+          : () {
+              HapticFeedback.selectionClick(); // a light tick on every committed tap
+              widget.onTap!();
+            },
       onLongPress: widget.onLongPress == null
           ? null
           : () {
               _set(false);
+              HapticFeedback.mediumImpact();
               widget.onLongPress!();
             },
       child: AnimatedScale(
@@ -122,7 +129,12 @@ class PillButton extends StatelessWidget {
             decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(100)),
             child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
               if (icon != null) ...[Icon(icon, size: compact ? 18 : 20, color: fg), const SizedBox(width: 8)],
-              Text(label, style: TextStyle(fontFamily: font, fontSize: compact ? 15 : 16, fontWeight: FontWeight.w700, color: fg)),
+              Flexible(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontFamily: font, fontSize: compact ? 15 : 16, fontWeight: FontWeight.w700, color: fg)),
+              ),
             ]),
           ),
         ),

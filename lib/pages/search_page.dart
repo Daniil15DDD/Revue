@@ -48,12 +48,15 @@ class _SearchPageState extends State<SearchPage> {
   Future<void> _search() async {
     final id = ++_searchId;
     if (_query.trim().isEmpty) {
-      setState(() => _results = []);
+      setState(() {
+        _results = [];
+        _loading = false;
+      });
       return;
     }
     setState(() => _loading = true);
     final results = await store.catalog.search(_query, _kind);
-    if (!mounted || id != _searchId) return;
+    if (!mounted || id != _searchId) return; // a newer search owns _loading
     setState(() {
       _results = results;
       _loading = false;

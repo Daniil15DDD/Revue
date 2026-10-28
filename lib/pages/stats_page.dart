@@ -29,7 +29,9 @@ class _StatsPageState extends State<StatsPage> {
       builder: (context, _) {
         final from = _period.start(DateTime.now());
         final inPeriod = store.items.where((i) => from == null || !i.created.isBefore(from)).toList();
-        final finished = store.items.where((i) => i.finishedAt != null && (from == null || !i.finishedAt!.isBefore(from))).length;
+        final finished = store.items
+            .where((i) => i.status == Status.finished && (from == null || !(i.finishedAt ?? i.created).isBefore(from)))
+            .length;
         final active = store.items.where((i) => i.status == Status.active).length;
         final episodes = store.items.where((i) => i.kind == Kind.show).fold(0, (a, i) => a + i.progress);
         final pages = store.items.where((i) => i.kind == Kind.book).fold(0, (a, i) => a + i.progress);
@@ -39,8 +41,7 @@ class _StatsPageState extends State<StatsPage> {
         return Scaffold(
           body: ListView(padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 14, 16, 130), children: [
             Row(children: [
-              Text('Stats', style: RvText.display(rv.text)),
-              const Spacer(),
+              Expanded(child: Text('Stats', maxLines: 1, overflow: TextOverflow.ellipsis, style: RvText.display(rv.text))),
               PillButton(label: _period.label, icon: Icons.calendar_today_rounded, primary: false, compact: true, onTap: _pickPeriod),
             ]),
             const SizedBox(height: 18),
@@ -51,7 +52,7 @@ class _StatsPageState extends State<StatsPage> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('SAVED', style: RvText.label(rv.text2)),
                 const SizedBox(height: 4),
-                Text('${inPeriod.length}',
+                CountUp(inPeriod.length,
                     style: TextStyle(
                         fontFamily: font, fontSize: 64, fontWeight: FontWeight.w800, letterSpacing: -2.5, color: rv.text, fontFeatures: tabular)),
                 Text(_period == Period.all ? 'things in your library' : 'added ${_period.label.toLowerCase()}',
@@ -115,7 +116,7 @@ class _StatsPageState extends State<StatsPage> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, color: rv.accent, size: 22),
         const SizedBox(height: 14),
-        Text(value,
+        CountUp(int.parse(value),
             style: TextStyle(
                 fontFamily: font,
                 fontSize: 30,
@@ -132,4 +133,19 @@ class _StatsPageState extends State<StatsPage> {
     final p = await pickOption<Period>(context, [for (final p in Period.values) SheetOption(p, p.label)], title: 'Show stats for');
     if (p != null) setState(() => _period = p);
   }
+}
+
+/// A number that counts up to its value (eased), and re-animates when it changes.
+class CountUp extends StatelessWidget {
+  const CountUp(this.value, {super.key, required this.style});
+  final int value;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: value.toDouble()), // counts up from 0 the first time
+        duration: reduceMotion(context) ? Duration.zero : const Duration(milliseconds: 900),
+        curve: Curves.easeOutCubic,
+        builder: (_, v, _) => Text('${v.round()}', style: style),
+      );
 }

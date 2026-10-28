@@ -192,6 +192,7 @@ class Store extends ChangeNotifier {
       if (info == null) return false;
       item.seasons = info.seasons;
       item.total = info.pages ?? info.episodes;
+      if ((item.total ?? 1) <= 0) item.total = null;
       item.ongoing = info.ongoing;
       if (item.total != null && item.progress > item.total!) item.progress = item.total!;
       return item.total != null;
@@ -215,7 +216,13 @@ class Store extends ChangeNotifier {
   /// Adds a book/series picked from search, with its cover and totals, already filed and tagged.
   Future<Item> addFromCatalog(CatalogResult r, {required Status status, String? listId}) async {
     final existing = r.url == null ? null : items.where((i) => i.url == r.url).firstOrNull;
-    if (existing != null) return existing;
+    if (existing != null) {
+      // Already saved: apply what was just chosen instead of silently ignoring it.
+      existing.setStatus(status);
+      if (listId != null) existing.listId = listId;
+      await _commit();
+      return existing;
+    }
     final item = Item(title: r.title, url: r.url, kind: r.kind, listId: listId, source: r.subtitle);
     items.insert(0, item);
     processing.add(item.id);
@@ -224,6 +231,7 @@ class Store extends ChangeNotifier {
       if (r.tvmazeId != null) item.seasons = await catalog.seasons(r.tvmazeId!);
       if (item.seasons.isEmpty && r.episodes != null) item.seasons = [r.episodes!];
       item.total = r.pages ?? (item.seasons.isEmpty ? null : item.seasons.reduce((a, b) => a + b));
+      if ((item.total ?? 1) <= 0) item.total = null;
       item.setStatus(status);
       if (r.imageUrl != null) {
         final bytes = await fetcher.downloadImage(r.imageUrl!);

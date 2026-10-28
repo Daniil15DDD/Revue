@@ -183,6 +183,7 @@ class Item {
 
   /// Sets progress and moves the status along: started → active, reached the end → finished.
   void setProgress(int value) {
+    if (total != null && total! <= 0) total = null; // 0 from a bad lookup means "unknown"
     progress = value.clamp(0, total ?? 1 << 30);
     if (total != null && progress >= total! && !ongoing) {
       setStatus(Status.finished);

@@ -51,7 +51,13 @@ class _ListPageState extends State<ListPage> {
       listenable: store,
       builder: (context, _) {
         final list = widget.list;
-        if (list != null && !store.lists.contains(list)) return const SizedBox(); // deleted while open
+        if (list != null && !store.lists.contains(list)) {
+          // Deleted while open (e.g. from its own ••• menu): go back instead of showing a blank page.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) Navigator.maybePop(context);
+          });
+          return const Scaffold();
+        }
         final items = _items;
         final groups = {for (final s in _order) s: items.where((i) => i.status == s).toList()}..removeWhere((_, v) => v.isEmpty);
         if (_only != null && !groups.containsKey(_only)) _only = null;
@@ -185,7 +191,12 @@ class ItemCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
               child: Stack(fit: StackFit.expand, children: [
-                thumb != null ? Image.file(thumb, fit: BoxFit.cover, errorBuilder: (_, _, _) => _placeholder(rv)) : _placeholder(rv),
+                thumb != null
+                    ? Hero(
+                        tag: 'cover-${item.id}',
+                        child: Image.file(thumb, fit: BoxFit.cover, errorBuilder: (_, _, _) => _placeholder(rv)),
+                      )
+                    : _placeholder(rv),
                 if (item.status == Status.finished)
                   Positioned(
                     right: 8,

@@ -101,4 +101,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode, ThemeMode.dark);
   });
+
+  testWidgets('deleting a list from its own page goes back home', (tester) async {
+    final l = (await tester.runAsync(() => store.addList('Temp')))!;
+    await pumpApp(tester);
+    await tester.tap(find.text('Temp'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => store.deleteList(l));
+    await tester.pumpAndSettle();
+    expect(find.text('Start your first list'), findsOneWidget);
+  });
 }
