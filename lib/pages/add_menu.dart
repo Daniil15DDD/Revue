@@ -9,14 +9,15 @@ import '../widgets.dart';
 enum AddAction { list, search, import, note }
 
 /// The "+" menu: the screen blurs away and option cards spring up from the button.
-Future<AddAction?> showAddMenu(BuildContext context) {
+/// [from] is the + button's rect: the ✕ morphs out of it and the blur ripples from its centre.
+Future<AddAction?> showAddMenu(BuildContext context, {required Rect from}) {
   return showGeneralDialog<AddAction>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Close',
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 560),
-    pageBuilder: (ctx, a, _) => Material(type: MaterialType.transparency, child: _AddMenu(animation: a)),
+    pageBuilder: (ctx, a, _) => Material(type: MaterialType.transparency, child: _AddMenu(animation: a, from: from)),
     // No route-level fade: an opacity layer over a BackdropFilter turns the blur off on device
     // (that's what made it pop in at the end). The menu animates itself.
     transitionBuilder: (ctx, a, _, child) => child,
@@ -24,8 +25,9 @@ Future<AddAction?> showAddMenu(BuildContext context) {
 }
 
 class _AddMenu extends StatelessWidget {
-  const _AddMenu({required this.animation});
+  const _AddMenu({required this.animation, required this.from});
   final Animation<double> animation;
+  final Rect from;
 
   static const _options = [
     (AddAction.list, 'Create a List', 'Collect and organize your favorites', Icons.collections_bookmark_rounded,
@@ -53,8 +55,8 @@ class _AddMenu extends StatelessWidget {
           Positioned.fill(
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: ClipPath(
-                clipper: _Ripple(t, bottom + 24 + 32),
+              child: ClipOval(
+                clipper: _Ripple(t, from.center),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
                   child: const ColoredBox(color: Color(0x73000000)),
@@ -74,11 +76,10 @@ class _AddMenu extends StatelessWidget {
               ]),
             ),
           ),
-          // ✕ sits exactly where the + was, turning from + into ✕.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottom + 24,
+          // The + pill itself morphs into the round ✕ (same centre), turning 45° as it goes.
+          Positioned.fromRect(
+            rect: Rect.fromCenter(
+                center: from.center, width: from.width + (64 - from.width) * t, height: from.height + (64 - from.height) * t),
             child: Center(
               child: Semantics(
                 button: true,
@@ -86,13 +87,14 @@ class _AddMenu extends StatelessWidget {
                 child: Pressable(
                   onTap: () => Navigator.pop(context),
                   scale: 0.9,
-                  child: Transform.rotate(
-                    angle: calm ? 0 : (1 - t) * -0.785, // 45° → 0 as it opens
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(color: rv.ink, shape: BoxShape.circle),
-                      child: Icon(Icons.close_rounded, color: rv.onInk, size: 28),
+                  child: Container(
+                    width: double.infinity, // fill the morphing rect
+                    height: double.infinity,
+                    decoration: BoxDecoration(color: rv.ink, borderRadius: BorderRadius.circular(100)),
+                    // Only the glyph turns (45° → 0): rotating the still-oval pill makes it wobble.
+                    child: Transform.rotate(
+                      angle: calm ? 0 : (1 - t) * -0.785,
+                      child: Icon(Icons.close_rounded, color: rv.onInk, size: 28 + 4 * (1 - t)), // + is 32
                     ),
                   ),
                 ),
@@ -162,19 +164,20 @@ class _AddMenu extends StatelessWidget {
   }
 }
 
-/// Circle centred on the + button whose radius grows from 0 to the far screen corner.
-class _Ripple extends CustomClipper<Path> {
-  _Ripple(this.t, this.fromBottom);
+/// Circle centred on the + button whose radius grows from the button to the farthest screen corner.
+class _Ripple extends CustomClipper<Rect> {
+  _Ripple(this.t, this.c);
   final double t;
-  final double fromBottom; // + button centre, measured from the bottom edge
+  final Offset c;
 
   @override
-  Path getClip(Size size) {
-    final c = Offset(size.width / 2, size.height - fromBottom);
-    final far = math.sqrt(math.pow(size.width / 2, 2) + math.pow(c.dy, 2));
-    return Path()..addOval(Rect.fromCircle(center: c, radius: 32 + (far - 32) * t));
+  Rect getClip(Size size) {
+    final far = [Offset.zero, Offset(size.width, 0), Offset(0, size.height), Offset(size.width, size.height)]
+        .map((p) => (p - c).distance)
+        .reduce(math.max);
+    return Rect.fromCircle(center: c, radius: 32 + (far - 32) * t);
   }
 
   @override
-  bool shouldReclip(_Ripple old) => old.t != t || old.fromBottom != fromBottom;
+  bool shouldReclip(_Ripple old) => old.t != t || old.c != c;
 }

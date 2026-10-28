@@ -95,12 +95,12 @@ class _RevueAppState extends State<RevueApp> {
 
   void _toast(String text) => _messenger.currentState?.showSnackBar(SnackBar(content: Text(text)));
 
-  Future<void> _onPlus() async {
+  Future<void> _onPlus(Rect from) async {
     final ctx = _nav.currentContext;
     if (ctx == null) return;
     final store = widget.store;
     // ignore: use_build_context_synchronously — ctx is the navigator's own context, read just above with no gap.
-    switch (await showAddMenu(ctx)) {
+    switch (await showAddMenu(ctx, from: from)) {
       case AddAction.list:
         if (!ctx.mounted) return;
         final l = await showListEditor(ctx, store);
@@ -181,7 +181,7 @@ class TabBarPill extends StatelessWidget {
   const TabBarPill({super.key, required this.tab, required this.onTab, required this.onPlus});
   final int tab;
   final ValueChanged<int> onTab;
-  final VoidCallback onPlus;
+  final ValueChanged<Rect> onPlus; // the + button's rect on screen, so the menu grows out of it
 
   @override
   Widget build(BuildContext context) {
@@ -223,9 +223,12 @@ class TabBarPill extends StatelessWidget {
               Semantics(
                 button: true,
                 label: 'Add',
-                child: Pressable(
+                child: Builder(builder: (context) => Pressable(
                   scale: 0.9,
-                  onTap: onPlus,
+                  onTap: () {
+                    final box = context.findRenderObject()! as RenderBox;
+                    onPlus(box.localToGlobal(Offset.zero) & box.size);
+                  },
                   child: Container(
                     width: 76,
                     height: 54,
@@ -236,7 +239,7 @@ class TabBarPill extends StatelessWidget {
                     ),
                     child: Icon(Icons.add_rounded, color: rv.onInk, size: 32),
                   ),
-                ),
+                )),
               ),
               item(2, Icons.bar_chart_rounded, Icons.bar_chart_rounded, 'Stats'),
               item(3, Icons.person_outline_rounded, Icons.person_rounded, 'Settings'),
