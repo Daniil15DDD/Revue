@@ -100,20 +100,37 @@ const listPalette = [
   0xFF8E8E93, // grey
 ];
 
+class Folder {
+  Folder({String? id, required this.name}) : id = id ?? _newId();
+  final String id;
+  String name;
+
+  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+  factory Folder.fromJson(Map<String, dynamic> j) => Folder(id: j['id'], name: j['name'] ?? '');
+}
+
 class RevueList {
-  RevueList({String? id, required this.name, int? color, this.emoji = ''})
+  RevueList({String? id, required this.name, int? color, this.emoji = '', this.folderId, this.image})
       : id = id ?? _newId(),
         color = color ?? listPalette[_colorCounter++ % listPalette.length];
   final String id;
   String name;
   int color;
   String emoji; // optional, older lists have one
+  String? folderId; // null = not in a folder (shows under All)
+  String? image; // cover photo file name in Store.thumbsDir; null = colour gradient
 
   String get display => emoji.isEmpty ? name : '$emoji $name';
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'color': color, 'emoji': emoji};
-  factory RevueList.fromJson(Map<String, dynamic> j) =>
-      RevueList(id: j['id'], name: j['name'] ?? '', color: j['color'], emoji: j['emoji'] ?? '');
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'name': name, 'color': color, 'emoji': emoji, 'folderId': folderId, 'image': image};
+  factory RevueList.fromJson(Map<String, dynamic> j) => RevueList(
+      id: j['id'],
+      name: j['name'] ?? '',
+      color: j['color'],
+      emoji: j['emoji'] ?? '',
+      folderId: j['folderId'],
+      image: j['image']);
 }
 
 class Item {

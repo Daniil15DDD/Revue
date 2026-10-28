@@ -27,6 +27,7 @@ class Store extends ChangeNotifier {
   /// Returns the on-device model when one is ready, else null (AI steps are skipped).
   final Llm? Function()? llm;
 
+  List<Folder> folders = [];
   List<RevueList> lists = [];
   List<Item> items = [];
   final Set<String> processing = {};
@@ -52,16 +53,12 @@ class Store extends ChangeNotifier {
       }
     }
     if (j != null) {
+      folders = [for (final f in j['folders'] ?? []) Folder.fromJson(f)];
       lists = [for (final l in j['lists'] ?? []) RevueList.fromJson(l)];
       items = [for (final i in j['items'] ?? []) Item.fromJson(i)];
       appearance = (j['settings'] as Map?)?['appearance'] ?? 'system';
     } else {
-      lists = [
-        RevueList(name: 'Movies & TV', color: listPalette[0]),
-        RevueList(name: 'Books', color: listPalette[3]),
-        RevueList(name: 'Places', color: listPalette[1]),
-      ];
-      await save();
+      await save(); // a new library starts empty: people make their own lists
     }
     notifyListeners();
   }
@@ -75,6 +72,7 @@ class Store extends ChangeNotifier {
       try {
         final tmp = File('${_file.path}.tmp');
         await tmp.writeAsString(jsonEncode({
+          'folders': [for (final f in folders) f.toJson()],
           'lists': [for (final l in lists) l.toJson()],
           'items': [for (final i in items) i.toJson()],
           'settings': {'appearance': appearance},
@@ -249,18 +247,56 @@ class Store extends ChangeNotifier {
     await _commit();
   }
 
-  Future<RevueList> addList(String name, {int? color}) async {
-    final l = RevueList(name: name, color: color);
+  Future<RevueList> addList(String name, {int? color, String? folderId, String? imagePath}) async {
+    final l = RevueList(name: name, color: color, folderId: folderId);
+    if (imagePath != null) l.image = await _writeThumb('list_${l.id}', await File(imagePath).readAsBytes());
     lists.add(l);
     await _commit();
     return l;
   }
 
-  Future<void> editList(RevueList list, {String? name, int? color}) {
+  Future<void> editList(RevueList list,
+      {String? name, int? color, String? imagePath, bool clearImage = false, String? folderId, bool clearFolder = false}) async {
     if (name != null && name.trim().isNotEmpty) list.name = name.trim();
     if (color != null) list.color = color;
+    if (clearImage || imagePath != null) {
+      final old = list.image == null ? null : File('${thumbsDir.path}/${list.image}');
+      if (old != null && await old.exists()) await old.delete();
+      list.image = null;
+    }
+    // Unique name per pick so cached images refresh.
+    if (imagePath != null) {
+      list.image = await _writeThumb('list_${list.id}_${DateTime.now().millisecondsSinceEpoch}', await File(imagePath).readAsBytes());
+    }
+    if (folderId != null) list.folderId = folderId;
+    if (clearFolder) list.folderId = null;
+    await _commit();
+  }
+
+  File? listImage(RevueList l) => l.image == null ? null : File('${thumbsDir.path}/${l.image}');
+
+  Future<Folder> addFolder(String name) async {
+    final f = Folder(name: name.trim());
+    folders.add(f);
+    await _commit();
+    return f;
+  }
+
+  Future<void> renameFolder(Folder f, String name) {
+    if (name.trim().isNotEmpty) f.name = name.trim();
     return _commit();
   }
+
+  /// Deleting a folder keeps its lists; they just move out of it.
+  Future<void> deleteFolder(Folder f) {
+    folders.removeWhere((x) => x.id == f.id);
+    for (final l in lists.where((l) => l.folderId == f.id)) {
+      l.folderId = null;
+    }
+    return _commit();
+  }
+
+  int itemCount(RevueList l) => items.where((i) => i.listId == l.id).length;
 
   Future<void> setStatus(Item item, Status s) {
     item.setStatus(s);
@@ -280,6 +316,8 @@ class Store extends ChangeNotifier {
 
   Future<void> deleteList(RevueList list) async {
     lists.removeWhere((l) => l.id == list.id);
+    final cover = listImage(list);
+    if (cover != null && await cover.exists()) await cover.delete();
     for (final i in items.where((i) => i.listId == list.id)) {
       i.listId = null; // items survive, they just leave the list
     }

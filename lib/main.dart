@@ -1,20 +1,28 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'ai.dart';
+import 'adaptive.dart';
 import 'models.dart';
+import 'pages/add_menu.dart';
 import 'pages/assistant_page.dart';
-import 'pages/library_page.dart';
+import 'pages/home_page.dart';
+import 'pages/list_editor.dart';
+import 'pages/list_page.dart';
+import 'pages/search_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/stats_page.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +50,8 @@ class RevueApp extends StatefulWidget {
 class _RevueAppState extends State<RevueApp> {
   StreamSubscription? _shares;
   final _messenger = GlobalKey<ScaffoldMessengerState>();
-  int _tab = 0;
+  final _nav = GlobalKey<NavigatorState>();
+  int _tab = 0; // 0 Home · 1 Ask · 2 Stats · 3 Settings
 
   @override
   void initState() {
@@ -60,6 +69,7 @@ class _RevueAppState extends State<RevueApp> {
   void _onShared(List<SharedMediaFile> files) {
     if (files.isEmpty) return;
     setState(() => _tab = 0);
+    _nav.currentState?.popUntil((r) => r.isFirst);
     for (final f in files) {
       final Future<Item>? future = switch (f.type) {
         SharedMediaType.image => widget.store.addScreenshot(f.path),
@@ -67,7 +77,7 @@ class _RevueAppState extends State<RevueApp> {
         _ => null,
       };
       if (future != null) {
-        _messenger.currentState?.showSnackBar(const SnackBar(content: Text('Saved to Revue')));
+        _messenger.currentState?.showSnackBar(const SnackBar(content: Text('Saved to your Inbox')));
         future.then<void>((_) {}, onError: (Object e) {
           _messenger.currentState?.showSnackBar(SnackBar(content: Text('Could not save: $e')));
         });
@@ -81,49 +91,154 @@ class _RevueAppState extends State<RevueApp> {
     super.dispose();
   }
 
+  void _toast(String text) => _messenger.currentState?.showSnackBar(SnackBar(content: Text(text)));
+
+  Future<void> _onPlus() async {
+    final ctx = _nav.currentContext;
+    if (ctx == null) return;
+    final store = widget.store;
+    switch (await showAddMenu(ctx)) {
+      case AddAction.list:
+        if (!ctx.mounted) return;
+        final l = await showListEditor(ctx, store);
+        if (l != null && ctx.mounted) Navigator.push(ctx, revueRoute(ListPage(store: store, list: l)));
+      case AddAction.search:
+        if (ctx.mounted) Navigator.push(ctx, revueRoute(SearchPage(store: store)));
+      case AddAction.import:
+        if (!ctx.mounted) return;
+        final how = await pickOption<String>(ctx, [
+          const SheetOption('link', 'Paste a Link', icon: Icons.link_rounded, subtitle: 'YouTube, articles, anime sites, anything'),
+          const SheetOption('shots', 'Choose Screenshots', icon: Icons.photo_library_rounded, subtitle: 'Text is read on-device'),
+        ], title: 'Import');
+        if (how == 'link' && ctx.mounted) {
+          final clip = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+          if (!ctx.mounted) return;
+          final text = await promptText(ctx, 'Paste a Link', initial: clip, hint: 'https://…');
+          if (text != null && text.trim().isNotEmpty) {
+            store.addText(text);
+            _toast('Saved to your Inbox');
+          }
+        } else if (how == 'shots') {
+          final picked = await ImagePicker().pickMultiImage();
+          for (final p in picked) {
+            store.addScreenshot(p.path);
+          }
+          if (picked.isNotEmpty) _toast(picked.length == 1 ? 'Reading your screenshot…' : 'Reading ${picked.length} screenshots…');
+        }
+      case AddAction.note:
+        if (!ctx.mounted) return;
+        final text = await promptText(ctx, 'Write a Thought', hint: 'Anything on your mind…', multiline: true);
+        if (text != null && text.trim().isNotEmpty) {
+          store.addNote(text);
+          _toast('Saved to your Inbox');
+        }
+      case null:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final platform = defaultTargetPlatform;
     return ListenableBuilder(
       listenable: widget.store,
       builder: (context, _) => MaterialApp(
-      title: 'Revue',
-      debugShowCheckedModeBanner: false,
-      scaffoldMessengerKey: _messenger,
-      theme: revueTheme(Brightness.light, platform),
-      darkTheme: revueTheme(Brightness.dark, platform),
-      themeMode: switch (widget.store.appearance) {
-        'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        _ => ThemeMode.system,
-      },
-      home: Scaffold(
-        extendBody: platform == TargetPlatform.iOS, // content scrolls under the translucent tab bar
-        body: IndexedStack(index: _tab, children: [
-          LibraryPage(store: widget.store),
-          AssistantPage(store: widget.store, llm: widget.llm, openSettings: () => setState(() => _tab = 2)),
-          SettingsPage(llm: widget.llm, store: widget.store),
-        ]),
-        bottomNavigationBar: platform == TargetPlatform.iOS
-            ? CupertinoTabBar(
-                currentIndex: _tab,
-                onTap: (i) => setState(() => _tab = i),
-                items: const [
-                  BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_grid_2x2), activeIcon: Icon(CupertinoIcons.square_grid_2x2_fill), label: 'Library'),
-                  BottomNavigationBarItem(icon: Icon(CupertinoIcons.sparkles), label: 'Ask'),
-                  BottomNavigationBarItem(icon: Icon(CupertinoIcons.gear), activeIcon: Icon(CupertinoIcons.gear_solid), label: 'Settings'),
-                ],
-              )
-            : NavigationBar(
-                selectedIndex: _tab,
-                onDestinationSelected: (i) => setState(() => _tab = i),
-                destinations: const [
-                  NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view), label: 'Library'),
-                  NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Ask'),
-                  NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune), label: 'Settings'),
-                ],
-              ),
+        title: 'Revue',
+        debugShowCheckedModeBanner: false,
+        navigatorKey: _nav,
+        scaffoldMessengerKey: _messenger,
+        theme: revueTheme(Brightness.light, platform),
+        darkTheme: revueTheme(Brightness.dark, platform),
+        themeMode: switch (widget.store.appearance) {
+          'light' => ThemeMode.light,
+          'dark' => ThemeMode.dark,
+          _ => ThemeMode.system,
+        },
+        home: Scaffold(
+          extendBody: true, // content scrolls under the floating glass bar
+          body: IndexedStack(index: _tab, children: [
+            HomePage(store: widget.store, onCreateList: () async {
+              final ctx = _nav.currentContext;
+              if (ctx != null) await showListEditor(ctx, widget.store);
+            }),
+            AssistantPage(store: widget.store, llm: widget.llm, openSettings: () => setState(() => _tab = 3)),
+            StatsPage(store: widget.store),
+            SettingsPage(llm: widget.llm, store: widget.store),
+          ]),
+          bottomNavigationBar: TabBarPill(tab: _tab, onTab: (i) => setState(() => _tab = i), onPlus: _onPlus),
+        ),
       ),
+    );
+  }
+}
+
+/// Floating glass pill: Home · Ask · ( + ) · Stats · Settings.
+class TabBarPill extends StatelessWidget {
+  const TabBarPill({super.key, required this.tab, required this.onTab, required this.onPlus});
+  final int tab;
+  final ValueChanged<int> onTab;
+  final VoidCallback onPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    final rv = Rv.of(context);
+    Widget item(int i, IconData icon, IconData active, String label) => Expanded(
+          child: Semantics(
+            button: true,
+            selected: tab == i,
+            label: label,
+            child: Pressable(
+              scale: 0.88,
+              onTap: () => onTab(i),
+              child: Center(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutBack,
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(color: tab == i ? rv.raised : Colors.transparent, shape: BoxShape.circle),
+                  child: Icon(tab == i ? active : icon, size: 27, color: tab == i ? rv.text : rv.text2),
+                ),
+              ),
+            ),
+          ),
+        );
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+        child: Glass(
+          radius: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: SizedBox(
+            height: 62,
+            child: Row(children: [
+              item(0, Icons.home_outlined, Icons.home_rounded, 'Home'),
+              item(1, Icons.auto_awesome_outlined, Icons.auto_awesome, 'Ask'),
+              Semantics(
+                button: true,
+                label: 'Add',
+                child: Pressable(
+                  scale: 0.9,
+                  onTap: onPlus,
+                  child: Container(
+                    width: 76,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: rv.ink,
+                      borderRadius: BorderRadius.circular(27),
+                      boxShadow: [BoxShadow(color: rv.ink.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 4))],
+                    ),
+                    child: Icon(Icons.add_rounded, color: rv.onInk, size: 32),
+                  ),
+                ),
+              ),
+              item(2, Icons.bar_chart_rounded, Icons.bar_chart_rounded, 'Stats'),
+              item(3, Icons.person_outline_rounded, Icons.person_rounded, 'Settings'),
+            ]),
+          ),
+        ),
       ),
     );
   }
