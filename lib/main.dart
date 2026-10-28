@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,6 +18,8 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Debug-only: `flutter run --dart-define=REVUE_PLATFORM=ios` previews the iPhone UI on Android.
+  if (const String.fromEnvironment('REVUE_PLATFORM') == 'ios') debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
   await FlutterGemma.initialize(); // required before any model install/inference call
   final docs = await getApplicationDocumentsDirectory();
   final llm = GemmaLlm();
@@ -79,27 +83,46 @@ class _RevueAppState extends State<RevueApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    final platform = defaultTargetPlatform;
+    return ListenableBuilder(
+      listenable: widget.store,
+      builder: (context, _) => MaterialApp(
       title: 'Revue',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _messenger,
-      theme: revueTheme(Brightness.light),
-      darkTheme: revueTheme(Brightness.dark),
+      theme: revueTheme(Brightness.light, platform),
+      darkTheme: revueTheme(Brightness.dark, platform),
+      themeMode: switch (widget.store.appearance) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      },
       home: Scaffold(
         body: IndexedStack(index: _tab, children: [
           LibraryPage(store: widget.store),
           AssistantPage(store: widget.store, llm: widget.llm, openSettings: () => setState(() => _tab = 2)),
-          SettingsPage(llm: widget.llm),
+          SettingsPage(llm: widget.llm, store: widget.store),
         ]),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: (i) => setState(() => _tab = i),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view), label: 'Library'),
-            NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Ask'),
-            NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune), label: 'Settings'),
-          ],
-        ),
+        bottomNavigationBar: platform == TargetPlatform.iOS
+            ? CupertinoTabBar(
+                currentIndex: _tab,
+                onTap: (i) => setState(() => _tab = i),
+                items: const [
+                  BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_grid_2x2), activeIcon: Icon(CupertinoIcons.square_grid_2x2_fill), label: 'Library'),
+                  BottomNavigationBarItem(icon: Icon(CupertinoIcons.sparkles), label: 'Ask'),
+                  BottomNavigationBarItem(icon: Icon(CupertinoIcons.gear), activeIcon: Icon(CupertinoIcons.gear_solid), label: 'Settings'),
+                ],
+              )
+            : NavigationBar(
+                selectedIndex: _tab,
+                onDestinationSelected: (i) => setState(() => _tab = i),
+                destinations: const [
+                  NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view), label: 'Library'),
+                  NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Ask'),
+                  NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune), label: 'Settings'),
+                ],
+              ),
+      ),
       ),
     );
   }

@@ -23,6 +23,7 @@ class Store extends ChangeNotifier {
   List<RevueList> lists = [];
   List<Item> items = [];
   final Set<String> processing = {};
+  String appearance = 'system'; // 'system' | 'light' | 'dark'
 
   File get _file => File('${dir.path}/revue.json');
   Directory get thumbsDir => Directory('${dir.path}/thumbs');
@@ -46,6 +47,7 @@ class Store extends ChangeNotifier {
     if (j != null) {
       lists = [for (final l in j['lists'] ?? []) RevueList.fromJson(l)];
       items = [for (final i in j['items'] ?? []) Item.fromJson(i)];
+      appearance = (j['settings'] as Map?)?['appearance'] ?? 'system';
     } else {
       lists = [
         RevueList(name: 'Watch later', emoji: '🎬'),
@@ -68,6 +70,7 @@ class Store extends ChangeNotifier {
         await tmp.writeAsString(jsonEncode({
           'lists': [for (final l in lists) l.toJson()],
           'items': [for (final i in items) i.toJson()],
+          'settings': {'appearance': appearance},
         }));
         await tmp.rename(_file.path);
       } catch (e) {
@@ -173,6 +176,11 @@ class Store extends ChangeNotifier {
   // MARK: editing
 
   Future<void> update(Item item) => _commit();
+
+  Future<void> setAppearance(String value) {
+    appearance = value;
+    return _commit();
+  }
 
   Future<void> delete(Item item) async {
     items.removeWhere((i) => i.id == item.id);

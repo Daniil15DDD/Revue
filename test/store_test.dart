@@ -112,6 +112,15 @@ void main() {
     expect(again.items.single.listId, isNull);
   });
 
+  test('appearance setting survives a reload', () async {
+    final s = make();
+    await s.load();
+    await s.setAppearance('dark');
+    final again = make();
+    await again.load();
+    expect(again.appearance, 'dark');
+  });
+
   test('a corrupt library file is kept aside and the app still starts', () async {
     File('${dir.path}/revue.json').writeAsStringSync('{"items": [tru');
     final s = make();

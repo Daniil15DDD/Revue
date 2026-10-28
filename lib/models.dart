@@ -1,20 +1,25 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 enum Kind {
-  video(Icons.play_circle_fill, 'Video'),
-  music(Icons.music_note, 'Music'),
-  movie(Icons.movie, 'Movie'),
-  book(Icons.menu_book, 'Book'),
-  article(Icons.article, 'Article'),
-  place(Icons.place, 'Place'),
-  product(Icons.shopping_bag, 'Product'),
-  link(Icons.link, 'Link'),
-  image(Icons.image, 'Screenshot'),
-  note(Icons.notes, 'Note');
+  video(Icons.play_circle_fill, CupertinoIcons.play_rectangle_fill, 'Video'),
+  music(Icons.music_note, CupertinoIcons.music_note, 'Music'),
+  movie(Icons.movie, CupertinoIcons.film, 'Movie'),
+  book(Icons.menu_book, CupertinoIcons.book_fill, 'Book'),
+  article(Icons.article, CupertinoIcons.doc_text_fill, 'Article'),
+  place(Icons.place, CupertinoIcons.map_pin_ellipse, 'Place'),
+  product(Icons.shopping_bag, CupertinoIcons.bag_fill, 'Product'),
+  link(Icons.link, CupertinoIcons.link, 'Link'),
+  image(Icons.image, CupertinoIcons.photo, 'Screenshot'),
+  note(Icons.notes, CupertinoIcons.doc_plaintext, 'Note');
 
-  const Kind(this.icon, this.label);
-  final IconData icon;
+  const Kind(this.materialIcon, this.iosIcon, this.label);
+  final IconData materialIcon;
+  final IconData iosIcon; // SF Symbols look-alikes for the iPhone UI
   final String label;
+
+  IconData icon(BuildContext context) =>
+      Theme.of(context).platform == TargetPlatform.iOS ? iosIcon : materialIcon;
 
   static Kind? byName(String? name) =>
       Kind.values.where((k) => k.name == name?.trim().toLowerCase()).firstOrNull;

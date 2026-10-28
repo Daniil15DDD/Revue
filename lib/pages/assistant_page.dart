@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../adaptive.dart';
 import '../ai.dart';
 import '../store.dart';
 
@@ -63,32 +65,33 @@ class _AssistantPageState extends State<AssistantPage> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
+    final ios = isIOS(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Ask Revue', style: t.headlineSmall)),
+      appBar: ios
+          ? CupertinoNavigationBar(
+              middle: const Text('Ask Revue'),
+              border: null,
+              transitionBetweenRoutes: false,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            )
+          : AppBar(title: Text('Ask Revue', style: t.headlineSmall)),
       body: Column(children: [
-        ListenableBuilder(
-          listenable: widget.llm,
-          builder: (context, _) => widget.llm.ready
-              ? const SizedBox()
-              : MaterialBanner(
-                  content: const Text('Download the on-device AI model to chat. Until then, answers are plain search.'),
-                  leading: const Icon(Icons.download_for_offline_outlined),
-                  actions: [TextButton(onPressed: widget.openSettings, child: const Text('Get model'))],
-                ),
-        ),
+        ListenableBuilder(listenable: widget.llm, builder: (context, _) => widget.llm.ready ? const SizedBox() : _modelBanner(context)),
         Expanded(
           child: _turns.isEmpty
               ? ListView(padding: const EdgeInsets.all(24), children: [
                   const SizedBox(height: 24),
-                  Icon(Icons.auto_awesome, size: 44, color: scheme.primary),
+                  Icon(ios ? CupertinoIcons.sparkles : Icons.auto_awesome, size: 44, color: scheme.primary),
                   const SizedBox(height: 12),
-                  Text('Ask anything about what you\'ve saved.', textAlign: TextAlign.center, style: t.titleLarge),
+                  Text('Ask anything about what you\'ve saved.',
+                      textAlign: TextAlign.center,
+                      style: ios ? t.titleLarge?.copyWith(fontWeight: FontWeight.w600) : t.titleLarge),
                   const SizedBox(height: 6),
                   Text('Runs entirely on your phone. Nothing is uploaded.',
                       textAlign: TextAlign.center, style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 24),
                   Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-                    for (final s in _suggestions) ActionChip(label: Text(s), onPressed: () => _ask(s)),
+                    for (final s in _suggestions) Pill(label: s, selected: false, onTap: () => _ask(s)),
                   ]),
                 ])
               : ListView.builder(
@@ -100,61 +103,114 @@ class _AssistantPageState extends State<AssistantPage> {
                     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                       _bubble(q, mine: true),
                       a.isEmpty
-                          ? const Align(
+                          ? Align(
                               alignment: Alignment.centerLeft,
-                              child: Padding(padding: EdgeInsets.all(12), child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: ios
+                                    ? const CupertinoActivityIndicator()
+                                    : const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                              ),
                             )
                           : _bubble(a, mine: false),
                     ]);
                   },
                 ),
         ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-            child: Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _input,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: _ask,
-                  minLines: 1,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: 'Ask about your library…',
-                    filled: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filled(
-                tooltip: 'Send',
-                onPressed: _busy ? null : () => _ask(_input.text),
-                icon: const Icon(Icons.arrow_upward),
-              ),
-            ]),
-          ),
-        ),
+        SafeArea(top: false, child: ios ? _iosInput(context) : _materialInput()),
       ]),
     );
   }
 
+  Widget _modelBanner(BuildContext context) {
+    if (!isIOS(context)) {
+      return MaterialBanner(
+        content: const Text('Download the on-device AI model to chat. Until then, answers are plain search.'),
+        leading: const Icon(Icons.download_for_offline_outlined),
+        actions: [TextButton(onPressed: widget.openSettings, child: const Text('Get model'))],
+      );
+    }
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+      decoration: BoxDecoration(
+        color: CupertinoDynamicColor.resolve(CupertinoColors.secondarySystemGroupedBackground, context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(children: [
+        Icon(CupertinoIcons.arrow_down_circle, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 10),
+        const Expanded(child: Text('Download the on-device model to chat. Until then, answers are plain search.',
+            style: TextStyle(fontSize: 14))),
+        CupertinoButton(onPressed: widget.openSettings, child: const Text('Get')),
+      ]),
+    );
+  }
+
+  Widget _iosInput(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 8, 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: CupertinoTextField(
+              controller: _input,
+              placeholder: 'Ask about your library',
+              textInputAction: TextInputAction.send,
+              onSubmitted: _ask,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: CupertinoDynamicColor.resolve(CupertinoColors.secondarySystemGroupedBackground, context),
+                border: Border.all(color: CupertinoDynamicColor.resolve(CupertinoColors.separator, context)),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+          CupertinoButton(
+            padding: const EdgeInsets.only(left: 6, bottom: 2),
+            minimumSize: Size.zero,
+            onPressed: _busy ? null : () => _ask(_input.text),
+            child: Semantics(label: 'Send', child: const Icon(CupertinoIcons.arrow_up_circle_fill, size: 34)),
+          ),
+        ]),
+      );
+
+  Widget _materialInput() => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        child: Row(children: [
+          Expanded(
+            child: TextField(
+              controller: _input,
+              textInputAction: TextInputAction.send,
+              onSubmitted: _ask,
+              decoration: InputDecoration(
+                hintText: 'Ask about your library…',
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            tooltip: 'Send',
+            onPressed: _busy ? null : () => _ask(_input.text),
+            icon: const Icon(Icons.arrow_upward),
+          ),
+        ]),
+      );
+
   Widget _bubble(String text, {required bool mine}) {
     final scheme = Theme.of(context).colorScheme;
+    final ios = isIOS(context);
+    final other = ios ? CupertinoDynamicColor.resolve(CupertinoColors.systemGrey5, context) : scheme.surfaceContainerHighest;
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
-        decoration: BoxDecoration(
-          color: mine ? scheme.primary : scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: SelectableText(text, style: TextStyle(color: mine ? scheme.onPrimary : scheme.onSurface)),
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        decoration: BoxDecoration(color: mine ? scheme.primary : other, borderRadius: BorderRadius.circular(18)),
+        child: SelectableText(text,
+            style: TextStyle(fontSize: ios ? 16 : null, color: mine ? scheme.onPrimary : scheme.onSurface)),
       ),
     );
   }
