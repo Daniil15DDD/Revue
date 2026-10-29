@@ -73,7 +73,7 @@ Google ML Kit reads the text in your screenshots **on the device**. The local mo
 ### ✨ Ask Revue
 Chat with an on-device LLM (Qwen 2.5 via MediaPipe) about your library: *"what was that sci-fi book I saved?"* Before the model is downloaded, the chat works as plain search.
 
-> **Private by design.** No account, no server. The network is used only for link previews, catalogue lookups and downloading the model once.
+> **Private by design.** No account, no server, no analytics. The network is used only for link previews, catalogue lookups and downloading the model once. Google ML Kit, which reads screenshots on the device, sends Google anonymous performance metrics. Details: [Privacy Policy](PRIVACY.md).
 
 ## Light and dark
 

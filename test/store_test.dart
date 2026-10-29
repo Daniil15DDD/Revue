@@ -67,6 +67,20 @@ void main() {
     expect(l.name, 'Anime');
   });
 
+  test('erase all deletes items, lists, folders and thumbnails, and stays erased', () async {
+    final s = make();
+    await s.load();
+    await s.addFolder('Watching');
+    await s.addList('Anime');
+    await s.addText('https://youtu.be/dQw4w9WgXcQ'); // downloads a thumbnail
+    expect(s.thumbsDir.listSync(), isNotEmpty);
+    await s.eraseAll();
+    expect((s.items.length, s.lists.length, s.folders.length, s.thumbsDir.listSync().length), (0, 0, 0, 0));
+    final again = make();
+    await again.load();
+    expect((again.items.length, again.lists.length, again.folders.length), (0, 0, 0));
+  });
+
   test('YouTube share text becomes a video with title, channel and thumbnail', () async {
     final s = make();
     await s.load();

@@ -342,6 +342,16 @@ class Store extends ChangeNotifier {
     }
     await _commit();
   }
+
+  /// Deletes the whole library: every item, list, folder, thumbnail and cover photo.
+  Future<void> eraseAll() async {
+    folders = [];
+    lists = [];
+    items = [];
+    if (await thumbsDir.exists()) await thumbsDir.delete(recursive: true);
+    await thumbsDir.create(recursive: true);
+    await _commit();
+  }
 }
 
 /// Title for a screenshot from its OCR text: the first line that reads like a heading,

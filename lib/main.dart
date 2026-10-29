@@ -27,6 +27,10 @@ import 'widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Figtree ships under the SIL Open Font License, which must travel with the font: shown in Settings → Licenses.
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(['Figtree'], await rootBundle.loadString('assets/fonts/OFL.txt'));
+  });
   // Debug-only: `flutter run --dart-define=REVUE_PLATFORM=ios` previews the iPhone UI on Android.
   if (const String.fromEnvironment('REVUE_PLATFORM') == 'ios') debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
   await FlutterGemma.initialize(); // required before any model install/inference call

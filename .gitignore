@@ -49,3 +49,8 @@ app.*.map.json
 
 # Demo recordings (large binaries)
 docs/demo/*.mp4
+
+# Release signing key and its passwords: never commit
+android/key.properties
+*.jks
+*.keystore

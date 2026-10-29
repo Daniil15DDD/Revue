@@ -29,6 +29,7 @@ flutter:
   assets:
     - assets/brand/splash_letter.png
     - assets/brand/splash_ribbon.png
+    - assets/fonts/OFL.txt
   fonts:
     - family: Figtree # SIL OFL 1.1, see assets/fonts/OFL.txt
       fonts:

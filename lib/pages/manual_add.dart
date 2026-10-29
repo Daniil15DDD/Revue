@@ -102,7 +102,7 @@ class _ManualAddState extends State<_ManualAdd> {
                 style: RvText.body(rv.text),
                 decoration: InputDecoration(
                   hintText: 'Total $unit (optional)',
-                  hintStyle: RvText.body(rv.text3),
+                  hintStyle: RvText.body(rv.text2),
                   filled: true,
                   fillColor: rv.raised,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),

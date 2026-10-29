@@ -28,6 +28,7 @@ class Pressable extends StatefulWidget {
 
 class _PressableState extends State<Pressable> {
   bool _down = false;
+  bool _focused = false; // keyboard / switch-access focus, shown as a ring
 
   void _set(bool v) {
     if (_down != v) setState(() => _down = v);
@@ -36,6 +37,28 @@ class _PressableState extends State<Pressable> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null || widget.onLongPress != null;
+    // Enter / Space activate it like a tap (keyboards, D-pads, Switch Access).
+    return FocusableActionDetector(
+      enabled: widget.onTap != null,
+      onShowFocusHighlight: (v) => setState(() => _focused = v),
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
+          widget.onTap?.call();
+          return null;
+        }),
+      },
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: _focused ? Border.all(color: Rv.of(context).accent, width: 2.5) : null,
+        ),
+        child: _gestures(enabled),
+      ),
+    );
+  }
+
+  Widget _gestures(bool enabled) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: enabled ? (_) => _set(true) : null,
@@ -342,7 +365,7 @@ class SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
       child: Row(children: [
         Text(text.toUpperCase(), style: RvText.label(rv.text2)),
-        if (count != null) ...[const SizedBox(width: 6), Text('$count', style: RvText.label(rv.text3))],
+        if (count != null) ...[const SizedBox(width: 6), Text('$count', style: RvText.label(rv.text2))],
       ]),
     );
   }

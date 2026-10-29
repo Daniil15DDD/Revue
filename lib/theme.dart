@@ -40,7 +40,7 @@ class Rv extends ThemeExtension<Rv> {
     stroke: Color(0x1FFFFFFF),
     text: Color(0xFFF5F5F7),
     text2: Color(0x99F5F5F7),
-    text3: Color(0x5CF5F5F7),
+    text3: Color(0x66F5F5F7), // icons only: 3:1 on raised; text uses text2 (4.5:1)
     ink: Color(0xFFFFFFFF),
     onInk: Color(0xFF000000),
     accent: Color(0xFFFF8A4C),
@@ -55,10 +55,10 @@ class Rv extends ThemeExtension<Rv> {
     stroke: Color(0x14000000),
     text: Color(0xFF111111),
     text2: Color(0x99111111),
-    text3: Color(0x5C111111),
+    text3: Color(0x73111111), // icons only: 3:1 on white; text uses text2 (4.5:1)
     ink: Color(0xFF111111),
     onInk: Color(0xFFFFFFFF),
-    accent: Color(0xFFE8622A),
+    accent: Color(0xFFC24A16), // 4.9:1 on white, so it works as small text
     glass: Color(0xC7FFFFFF),
     dark: false,
   );

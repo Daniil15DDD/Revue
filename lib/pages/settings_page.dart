@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../adaptive.dart';
 import '../ai.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
+
+const privacyPolicyUrl = 'https://github.com/Daniil15DDD/Revue/blob/main/PRIVACY.md';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key, required this.llm, required this.store});
@@ -20,6 +24,16 @@ class SettingsPage extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: $e')));
       }
     }
+  }
+
+  Future<void> _erase(BuildContext context) async {
+    final ok = await confirm(context, 'Erase all data?',
+        message: 'Every item, list, folder and photo in Revue will be deleted from this phone. This can’t be undone. '
+            'The AI model stays; remove it above if you want.',
+        action: 'Erase');
+    if (!ok) return;
+    await store.eraseAll();
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Everything was erased')));
   }
 
   @override
@@ -115,6 +129,19 @@ class SettingsPage extends StatelessWidget {
         ]),
         group('Privacy', [
           row(Icons.lock_outline_rounded, 'Stays on this phone', 'Online only for link previews, lookups and the one-time model download.'),
+          Pressable(
+            onTap: () => launchUrl(Uri.parse(privacyPolicyUrl), mode: LaunchMode.externalApplication),
+            child: row(Icons.policy_outlined, 'Privacy Policy', null, trailing: Icon(Icons.open_in_new_rounded, size: 18, color: rv.text3)),
+          ),
+          Pressable(
+            onTap: () => showLicensePage(context: context, applicationName: 'Revue'),
+            child: row(Icons.description_outlined, 'Licenses', 'Fonts and open-source code Revue uses',
+                trailing: Icon(Icons.chevron_right_rounded, color: rv.text3)),
+          ),
+          Pressable(
+            onTap: () => _erase(context),
+            child: row(Icons.delete_forever_rounded, 'Erase All Data', 'Every item, list, folder and photo in Revue'),
+          ),
         ]),
       ]),
     );

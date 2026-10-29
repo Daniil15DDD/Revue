@@ -93,7 +93,7 @@ class RvField extends StatelessWidget {
       cursorColor: rv.accent,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: RvText.body(rv.text3),
+        hintStyle: RvText.body(rv.text2),
         prefixIcon: prefix == null ? null : Icon(prefix, color: rv.text2),
         filled: true,
         fillColor: rv.raised,

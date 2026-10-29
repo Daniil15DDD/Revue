@@ -438,7 +438,7 @@ class _ItemPageState extends State<ItemPage> {
                           MaterialLocalizations.of(
                             context,
                           ).formatMediumDate(item.created),
-                          style: RvText.small(rv.text3),
+                          style: RvText.small(rv.text2),
                         ),
                       ],
                     ),
