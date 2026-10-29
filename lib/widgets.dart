@@ -299,8 +299,9 @@ class ListCover extends StatelessWidget {
     final hsl = HSLColor.fromColor(base);
     final deep = hsl.withLightness((hsl.lightness * 0.45).clamp(0.08, 0.4)).toColor();
     final light = hsl.withLightness((hsl.lightness * 1.15).clamp(0.3, 0.72)).toColor();
+    final photo = file != null && file.existsSync();
     return Stack(fit: StackFit.expand, children: [
-      if (file != null && file.existsSync())
+      if (photo)
         Image.file(file, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox())
       else
         DecoratedBox(
@@ -308,14 +309,16 @@ class ListCover extends StatelessWidget {
             gradient: LinearGradient(begin: Alignment.bottomLeft, end: Alignment.topRight, colors: [deep, light]),
           ),
         ),
-      // Scrim so white text stays legible on any photo or colour.
-      const DecoratedBox(
+      // Scrim so white text stays legible on any photo or colour (photos can be bright, so they get more).
+      DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0x26000000), Color(0x00000000), Color(0x8C000000)],
-            stops: [0, 0.45, 1],
+            colors: photo
+                ? const [Color(0x73000000), Color(0x0D000000), Color(0xBF000000)]
+                : const [Color(0x26000000), Color(0x00000000), Color(0x8C000000)],
+            stops: const [0, 0.4, 1],
           ),
         ),
       ),

@@ -18,10 +18,10 @@
 ---
 
 <p align="center">
-  <img src="docs/screenshots/home_dark.png" width="24%" alt="Home: your lists">
+  <img src="docs/screenshots/home_dark.png" width="24%" alt="Home: your lists, with photo covers">
+  <img src="docs/screenshots/books_dark.png" width="24%" alt="A books list with reading progress">
   <img src="docs/screenshots/list_anime.png" width="24%" alt="An anime list">
   <img src="docs/screenshots/item_series.png" width="24%" alt="Series progress">
-  <img src="docs/screenshots/stats.png" width="24%" alt="Stats">
 </p>
 
 ## In motion
@@ -54,8 +54,18 @@ Revue looks up how many **episodes, seasons or pages** something has, including 
 ### 🗂 Your lists, your folders
 No default lists. Make your own, give each a **colour or a cover photo**, and group them into folders like *Watching* or *Reading*.
 
+<p align="center">
+  <img src="docs/screenshots/list_series.png" width="30%" alt="A list with a photo cover">
+  &nbsp;
+  <img src="docs/screenshots/home_light.png" width="30%" alt="Lists with colour covers">
+</p>
+
 ### 📊 Stats
 How much you saved this week, month, year or all time, what's in progress, episodes watched, pages read, and a bar per list.
+
+<p align="center">
+  <img src="docs/screenshots/stats.png" width="30%" alt="Stats">
+</p>
 
 ### 🖼 Screenshots, read on-device
 Google ML Kit reads the text in your screenshots **on the device**. The local model then gives each one a title, a summary and tags, and any link inside is detected.
@@ -68,10 +78,9 @@ Chat with an on-device LLM (Qwen 2.5 via MediaPipe) about your library: *"what w
 ## Light and dark
 
 <p align="center">
-  <img src="docs/screenshots/home_light.png" width="24%" alt="Home in light mode">
-  <img src="docs/screenshots/books_light.png" width="24%" alt="Books list in light mode">
-  <img src="docs/screenshots/book_light.png" width="24%" alt="A book in light mode">
-  <img src="docs/screenshots/list_series.png" width="24%" alt="Series list in dark mode">
+  <img src="docs/screenshots/books_light.png" width="30%" alt="Books list in light mode">
+  <img src="docs/screenshots/book_light.png" width="30%" alt="A book in light mode">
+  <img src="docs/screenshots/books_dark.png" width="30%" alt="Books list in dark mode">
 </p>
 
 Revue has its own look on both platforms — the Figtree typeface, soft glass surfaces, spring animations and haptics — rather than imitating Android or iOS.
