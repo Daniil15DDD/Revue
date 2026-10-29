@@ -169,7 +169,11 @@ class _ItemPageState extends State<ItemPage> {
     final se = item.seasonEpisode;
     final (big, small) = item.kind == Kind.show
         ? (
-            se == null ? 'Not started' : 'Season ${se.$1} · Episode ${se.$2}',
+            se != null
+                ? 'Season ${se.$1} · Episode ${se.$2}'
+                : item.progress > 0
+                    ? 'Episode ${item.progress}' // no season data (most anime)
+                    : 'Not started',
             item.ongoing
                 ? '${item.progress} of ${item.total} out so far · still airing'
                 : '${item.progress} of ${item.total} episodes',

@@ -61,6 +61,18 @@ void main() {
     expect(store.items.first.status, Status.finished);
   });
 
+  testWidgets('a show without season data shows its episode, not "Not started"', (tester) async {
+    final anime = (await tester.runAsync(() => store.addList('Anime')))!;
+    store.items.add(Item(title: 'Frieren', kind: Kind.show, listId: anime.id, total: 28)..setProgress(18));
+    await pumpApp(tester);
+    await tester.tap(find.text('Anime'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Frieren'));
+    await tester.pumpAndSettle();
+    expect(find.text('Episode 18'), findsOneWidget);
+    expect(find.text('Not started'), findsNothing);
+  });
+
   testWidgets('+ menu offers the four ways to add', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.bySemanticsLabel('Add'));
