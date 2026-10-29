@@ -1,57 +1,113 @@
-# Revue
+<p align="center">
+  <img src="docs/banner.png" alt="Revue — save anything, track your progress" width="100%">
+</p>
 
-A review of everything you experience. Save videos, links, places, books and screenshots
-into lists, rate them, and ask an on-device AI about them. Runs on **iPhone and Android**
-(Flutter).
+<p align="center">
+  <b>A home for everything you watch, read and save.</b><br>
+  Share links from any app, search shows, anime and books, track episodes and pages,<br>
+  and ask an AI about your library that runs <b>entirely on your phone</b>.
+</p>
 
-## What it does
+<p align="center">
+  <img src="https://img.shields.io/badge/iPhone%20%C2%B7%20Android-111?style=for-the-badge&logo=flutter&logoColor=white" alt="iPhone and Android">
+  <img src="https://img.shields.io/badge/Flutter-3.41-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter 3.41">
+  <img src="https://img.shields.io/badge/AI-on--device-F0582A?style=for-the-badge" alt="On-device AI">
+  <img src="https://img.shields.io/badge/no%20account-no%20cloud-2BB5B0?style=for-the-badge" alt="No account, no cloud">
+</p>
 
-- **Share → Revue** from YouTube, Chrome, Safari, TikTok and so on. Revue fetches the title,
-  channel or site, and thumbnail automatically. YouTube uses oEmbed; other sites use their
-  Open Graph tags.
-- **Screenshots.** Share one to Revue, or use Add → Screenshots. Google ML Kit reads the text
-  **on the device**. The local LLM then gives it a title, a one-line summary and tags. Any link
-  in the screenshot is detected.
-- **Lists you name yourself**, each with a colour. The home page has a **Stats** card with item counts per
-  list (this week, month, year or all time). Long-press a list to rename it, recolour it or delete it.
-- **Status** for every item: Plan to read/watch, Reading/Watching, Finished, On hold, Dropped.
-- **Progress**: pages for books, and season/episode for series. **Find with AI** looks up the totals
-  (Open Library for books, TVmaze for series). When the on-device model is downloaded, it first cleans up messy titles.
-- **Search** across titles, notes, tags and the text inside screenshots.
-- **Review**: star ratings, a watched/read/visited flag, and notes.
-- **Ask Revue**: chat with an on-device LLM (Qwen 2.5 via flutter_gemma/MediaPipe) about
-  your library. Before the model is downloaded, the chat works as plain search.
+---
 
-Nothing is uploaded. The network is only used to fetch link previews and download the model once.
+<p align="center">
+  <img src="docs/screenshots/home_dark.png" width="24%" alt="Home: your lists">
+  <img src="docs/screenshots/list_anime.png" width="24%" alt="An anime list">
+  <img src="docs/screenshots/item_series.png" width="24%" alt="Series progress">
+  <img src="docs/screenshots/stats.png" width="24%" alt="Stats">
+</p>
 
-## Run
+## In motion
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/demo/launch_animation.gif" width="240" alt="Launch animation"><br><sub><b>Launch</b> — the r writes itself, then the bookmark drops</sub></td>
+    <td align="center" width="33%"><img src="docs/demo/add_menu.gif" width="240" alt="The + menu"><br><sub><b>The + menu</b> — the screen frosts over from the button</sub></td>
+    <td align="center" width="33%"><img src="docs/demo/progress.gif" width="240" alt="Tracking episodes"><br><sub><b>Progress</b> — one tap for the next episode</sub></td>
+  </tr>
+</table>
+
+## Features
+
+### 📥 Save from anywhere
+**Share → Revue** from YouTube, Chrome, Safari, TikTok and more. Revue pulls the title, channel or site, and the thumbnail on its own (YouTube oEmbed, Open Graph for everything else). Or paste a link, write a thought, or import screenshots.
+
+### 🔎 Find a show or book in one tap
+Search **series** (TVmaze), **anime** (AniList) and **books** (Open Library), then pick the status and list right as you add it. Can't find it? **Add Manually**.
+
+<p align="center">
+  <img src="docs/screenshots/add_menu.png" width="30%" alt="The + menu">
+  &nbsp;
+  <img src="docs/screenshots/search.png" width="30%" alt="Search anime">
+</p>
+
+### 📈 Progress that finds itself
+Revue looks up how many **episodes, seasons or pages** something has, including from anime sites like AniLiberty, and keeps ongoing shows up to date. Then it's *Next Episode* or *Set Page*, and a status for everything: Plan to watch, Watching, Watched, On hold, Dropped (or the reading versions for books).
+
+### 🗂 Your lists, your folders
+No default lists. Make your own, give each a **colour or a cover photo**, and group them into folders like *Watching* or *Reading*.
+
+### 📊 Stats
+How much you saved this week, month, year or all time, what's in progress, episodes watched, pages read, and a bar per list.
+
+### 🖼 Screenshots, read on-device
+Google ML Kit reads the text in your screenshots **on the device**. The local model then gives each one a title, a summary and tags, and any link inside is detected.
+
+### ✨ Ask Revue
+Chat with an on-device LLM (Qwen 2.5 via MediaPipe) about your library: *"what was that sci-fi book I saved?"* Before the model is downloaded, the chat works as plain search.
+
+> **Private by design.** No account, no server. The network is used only for link previews, catalogue lookups and downloading the model once.
+
+## Light and dark
+
+<p align="center">
+  <img src="docs/screenshots/home_light.png" width="24%" alt="Home in light mode">
+  <img src="docs/screenshots/books_light.png" width="24%" alt="Books list in light mode">
+  <img src="docs/screenshots/book_light.png" width="24%" alt="A book in light mode">
+  <img src="docs/screenshots/list_series.png" width="24%" alt="Series list in dark mode">
+</p>
+
+Revue has its own look on both platforms — the Figtree typeface, soft glass surfaces, spring animations and haptics — rather than imitating Android or iOS.
+
+## Run it
 
 ```bash
 flutter pub get
-flutter run            # Android device/emulator, or iPhone
-flutter test           # logic, storage and widget tests
+flutter run      # Android device/emulator, or iPhone
+flutter test     # logic, storage and widget tests
 ```
 
-- **Android**: works out of the box (minSdk 24). Share → Revue appears automatically.
-- **iOS**: requires Xcode. Follow [docs/IOS_SETUP.md](docs/IOS_SETUP.md) once to add the share extension.
-- **AI model**: in the app, go to Settings → On-device AI model → Download.
-  The 1.5B model is about 1.6 GB and the 0.5B model about 0.5 GB.
+- **Android** works out of the box (minSdk 24). *Share → Revue* appears automatically.
+- **iOS** needs Xcode. Follow [docs/IOS_SETUP.md](docs/IOS_SETUP.md) once to add the share extension.
+- **AI model**: in the app, Settings → On-device AI model → Download. The 1.5B model is about 1.6 GB, the 0.5B model about 0.5 GB.
 
-## Layout
+## How it's built
 
 | File | What |
 |---|---|
-| `lib/models.dart` | `Item`, `RevueList`, `Kind` (guessed from the URL host) |
+| `lib/models.dart` | `Item`, `RevueList`, `Folder`, statuses and progress |
+| `lib/store.dart` | The library as JSON + thumbnails on disk, with atomic saves |
 | `lib/link_fetcher.dart` | YouTube oEmbed, Open Graph parsing, thumbnail download |
-| `lib/store.dart` | JSON library + thumbnails on disk; add link / screenshot / note |
+| `lib/catalog.dart` | Search across TVmaze, AniList and Open Library |
+| `lib/progress_finder.dart` | Finds episode, season and page counts (AniLiberty, AniList, TVmaze, Open Library) |
 | `lib/ai.dart` | On-device LLM (flutter_gemma), OCR (ML Kit), prompts and retrieval |
-| `lib/pages/` | Library grid, item page, assistant chat, settings |
+| `lib/theme.dart`, `lib/widgets.dart` | Design tokens and the shared components |
+| `lib/launch_splash.dart` | The launch animation |
+| `lib/pages/` | Home, lists, item, search, stats, assistant, settings, the + menu |
 | `ios/ShareExtension/` | iOS share-sheet extension (see the setup doc) |
 
 ## Known limits
 
-- `flutter_gemma` is pinned at 0.13.6. Newer versions (renamed `flutter_edge_ai`) need Dart 3.12,
-  and this machine has Flutter 3.41.4 / Dart 3.11.
-- The assistant picks relevant items by keyword overlap, not embeddings. That works well up to a
-  few hundred items.
-- OCR covers Latin scripts only (`TextRecognitionScript.latin`).
+- `flutter_gemma` is pinned at 0.13.6; newer versions need Dart 3.12.
+- The assistant picks relevant items by keyword overlap, not embeddings — fine up to a few hundred items.
+- OCR covers Latin scripts only.
+- The iOS build hasn't been verified on a device yet.
+
+<sub>Cover art in the screenshots comes from TVmaze, AniList and Open Library and belongs to its owners.</sub>

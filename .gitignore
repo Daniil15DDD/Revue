@@ -48,4 +48,4 @@ app.*.map.json
 .claude/
 
 # Demo recordings (large binaries)
-docs/demo/
+docs/demo/*.mp4
